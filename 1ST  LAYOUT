@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escáner por Lotes a Google Sheets</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #e5e7eb;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-12 min-h-screen">
+
+    <div class="w-full max-w-4xl mx-auto bg-white p-8 md:p-10 rounded-xl shadow-2xl">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-teal-600">
+                Escáner por Lotes 📦
+            </h1>
+            <p class="text-gray-500 mt-2">
+                Escanea múltiples códigos y envíalos a Google Sheets con un solo botón.
+            </p>
+        </header>
+
+        <input 
+            type="text" 
+            id="scanner-input" 
+            class="absolute opacity-0 pointer-events-none" 
+            autofocus
+            tabindex="-1"
+            onblur="this.focus()"
+        >
+
+        <div id="status-area" class="text-center mb-6 p-4 rounded-lg bg-blue-100 text-blue-700 font-semibold transition-all duration-300 cursor-pointer" onclick="maintainFocus()">
+            ✅ Listo para escanear. Haga clic para activar el foco.
+        </div>
+        
+        <button
+            id="send-batch-button"
+            class="w-full py-4 mb-8 rounded-xl shadow-lg text-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+            onclick="sendBatchToSheets()"
+            disabled
+        >
+            Enviar <span id="batch-count">0</span> Códigos a Google Sheets
+        </button>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div id="latest-scan-area" class="p-4 bg-gray-100 rounded-xl border border-gray-300">
+                <h3 class="font-bold text-lg text-gray-700 mb-2">Último Código Leído</h3>
+                <p id="scanned-data" class="text-xl text-gray-900 break-words font-mono">[Ninguno]</p>
+                <p id="timestamp" class="text-sm text-gray-500 mt-2">Hora de escaneo: N/A</p>
+            </div>
+
+            <div id="batch-list-area" class="p-4 bg-white rounded-xl border border-gray-300 max-h-64 overflow-y-auto">
+                <h3 class="font-bold text-lg text-gray-700 mb-2">Códigos en Lote</h3>
+                <ul id="scanned-list" class="space-y-1 text-sm">
+                    <li class="text-gray-500" id="empty-message">Escanee un código para comenzar el lote.</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // *******************************************************************
+        // ⚠️ DEBES REEMPLAZAR ESTE VALOR CON LA URL DE TU APLICACIÓN WEB DE GOOGLE APPS SCRIPT
+        const SHEETS_WEB_APP_URL = "**PEGA_AQUÍ_LA_URL_DE_TU_APPS_SCRIPT**";
+        // *******************************************************************
+        
+        let batchData = []; // Lista donde se almacenarán todos los códigos escaneados
+        
+        const scannerInput = document.getElementById('scanner-input');
+        const scannedDataElement = document.getElementById('scanned-data');
+        const timestampElement = document.getElementById('timestamp');
+        const statusArea = document.getElementById('status-area');
+        const sendBatchButton = document.getElementById('send-batch-button');
+        const batchCountElement = document.getElementById('batch-count');
+        const scannedListElement = document.getElementById('scanned-list');
+        const emptyMessageElement = document.getElementById('empty-message');
+
+        function maintainFocus() {
+            setTimeout(() => {
+                scannerInput.focus();
+                if (!statusArea.classList.contains('bg-green-100')) {
+                    statusArea.textContent = '✅ Listo para escanear. Apunta y dispara.';
+                    statusArea.classList.remove('bg-red-100', 'text-red-700', 'bg-red-500', 'text-white');
+                    statusArea.classList.add('bg-blue-100', 'text-blue-700');
+                }
+            }, 50);
+        }
+
+        function updateBatchDisplay() {
+            // Actualiza el contador y el estado del botón
+            batchCountElement.textContent = batchData.length;
+            sendBatchButton.disabled = batchData.length === 0;
+
+            // Actualiza la lista en pantalla
+            scannedListElement.innerHTML = '';
+            if (batchData.length === 0) {
+                scannedListElement.appendChild(emptyMessageElement);
+                emptyMessageElement.classList.remove('hidden');
+            } else {
+                emptyMessageElement.classList.add('hidden');
+                batchData.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between items-center p-1 border-b border-gray-100';
+                    li.innerHTML = `
+                        <span class="font-mono text-gray-800">${item.codigo}</span>
+                        <span class="text-xs text-gray-400">${item.timestamp.split(' ')[1]}</span>
+                    `;
+                    scannedListElement.appendChild(li);
+                });
+                // Desplazar al último elemento añadido
+                scannedListElement.scrollTop = scannedListElement.scrollHeight;
+            }
+        }
+
+        // Función para enviar todo el lote a Google Sheets
+        async function sendBatchToSheets() {
+            if (batchData.length === 0) return;
+            if (SHEETS_WEB_APP_URL.includes("PEGA_AQUÍ_LA_URL_DE_TU_APPS_SCRIPT")) {
+                statusArea.textContent = '🔴 ERROR: URL de Apps Script no configurada.';
+                statusArea.classList.add('bg-red-500', 'text-white');
+                return;
+            }
+            
+            // Cambiar estado a Enviando
+            const currentCount = batchData.length;
+            statusArea.textContent = `⏳ Enviando ${currentCount} códigos...`;
+            statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-blue-100', 'text-blue-700');
+            statusArea.classList.add('bg-yellow-500', 'text-white');
+            sendBatchButton.disabled = true;
+
+            try {
+                const response = await fetch(SHEETS_WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', 
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    // Enviamos el array completo de códigos
+                    body: JSON.stringify({ batch: batchData }) 
+                });
+                
+                // NOTA: Con 'no-cors', confiamos en la respuesta opaca como éxito.
+
+                // Si la solicitud fue enviada
+                statusArea.textContent = `🎉 ¡Lote de ${currentCount} códigos enviado con éxito!`;
+                statusArea.classList.remove('bg-yellow-500', 'text-white');
+                statusArea.classList.add('bg-green-100', 'text-green-700');
+
+                // Limpiar la lista después del envío exitoso
+                batchData = []; 
+                scannedDataElement.textContent = "[Lote enviado, listo para el siguiente]";
+                timestampElement.textContent = `Último envío: ${new Date().toLocaleTimeString()} (${new Date().toLocaleDateString()})`;
+                
+            } catch (error) {
+                console.error('Error al enviar a Google Sheets:', error);
+                statusArea.textContent = '❌ Fallo de conexión o script al enviar a Sheets.';
+                statusArea.classList.remove('bg-yellow-500', 'text-white');
+                statusArea.classList.add('bg-red-500', 'text-white');
+            } finally {
+                // Volver a actualizar la interfaz después del intento
+                updateBatchDisplay();
+                maintainFocus();
+                setTimeout(maintainFocus, 3000); // Dar 3 segundos de feedback visual
+            }
+        }
+
+
+        // Escucha de escaneo
+        scannerInput.addEventListener('change', function() {
+            const scannedCode = this.value.trim();
+
+            if (scannedCode) {
+                const now = new Date();
+                const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+                
+                // 1. Mostrar el Resultado más reciente
+                scannedDataElement.textContent = scannedCode;
+                timestampElement.textContent = `Hora de escaneo: ${now.toLocaleTimeString()}`;
+
+                // 2. Almacenar en la lista de lote
+                batchData.push({
+                    codigo: scannedCode,
+                    longitud: scannedCode.length,
+                    timestamp: formattedTime 
+                });
+
+                // 3. Actualizar la interfaz
+                updateBatchDisplay();
+
+                // 4. Limpiar el campo para el próximo escaneo
+                this.value = '';
+                
+                // 5. Volver a enfocar el campo
+                maintainFocus();
+
+            } else {
+                this.value = ''; 
+                maintainFocus();
+            }
+        });
+
+        // Configuración inicial de foco y estado
+        document.body.addEventListener('click', maintainFocus);
+        window.addEventListener('blur', function() {
+            statusArea.textContent = '🔴 Foco perdido. Toca la pantalla para reanudar el escaneo.';
+            statusArea.classList.remove('bg-blue-100', 'text-blue-700', 'bg-green-100', 'text-green-700');
+            statusArea.classList.add('bg-red-100', 'text-red-700');
+        });
+        window.onload = maintainFocus;
+    </script>
+</body>
+</html>
