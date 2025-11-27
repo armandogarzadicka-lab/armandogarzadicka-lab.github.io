@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner por Lotes a Google Sheets</title>
+    <title>Escáner de Modelo y Series por Lotes</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -18,10 +18,10 @@
     <div class="w-full max-w-4xl mx-auto bg-white p-8 md:p-10 rounded-xl shadow-2xl">
         <header class="text-center mb-10">
             <h1 class="text-3xl md:text-4xl font-extrabold text-teal-600">
-                Escáner por Lotes 📦
+                Modelo + Series por Lotes 🏷️
             </h1>
             <p class="text-gray-500 mt-2">
-                Escanea múltiples códigos y envíalos a Google Sheets con un solo botón.
+                Escanea el Modelo una vez, y luego todas las Series.
             </p>
         </header>
 
@@ -35,29 +35,46 @@
         >
 
         <div id="status-area" class="text-center mb-6 p-4 rounded-lg bg-blue-100 text-blue-700 font-semibold transition-all duration-300 cursor-pointer" onclick="maintainFocus()">
-            ✅ Listo para escanear. Haga clic para activar el foco.
+            ✅ Listo. Toca aquí para asegurar el foco.
         </div>
         
+        <div class="mb-6 p-4 rounded-xl shadow bg-yellow-50 border border-yellow-200">
+            <h3 class="font-bold text-lg text-gray-700 mb-1 flex items-center">
+                Modelo Actual
+            </h3>
+            <p id="current-model-display" class="text-xl text-yellow-800 break-words font-mono">
+                [Escanea el primer código para definir el Modelo]
+            </p>
+            <button 
+                id="reset-model-button"
+                class="mt-2 text-sm text-red-500 hover:text-red-700 disabled:opacity-50"
+                onclick="resetModel()"
+                disabled
+            >
+                Reiniciar Modelo
+            </button>
+        </div>
+
         <button
             id="send-batch-button"
             class="w-full py-4 mb-8 rounded-xl shadow-lg text-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
             onclick="sendBatchToSheets()"
             disabled
         >
-            Enviar <span id="batch-count">0</span> Códigos a Google Sheets
+            Enviar Lote de <span id="batch-count">0</span> Series a Sheets
         </button>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div id="latest-scan-area" class="p-4 bg-gray-100 rounded-xl border border-gray-300">
-                <h3 class="font-bold text-lg text-gray-700 mb-2">Último Código Leído</h3>
-                <p id="scanned-data" class="text-xl text-gray-900 break-words font-mono">[Ninguno]</p>
+                <h3 class="font-bold text-lg text-gray-700 mb-2">Última Serie Leída</h3>
+                <p id="scanned-data" class="text-xl text-gray-900 break-words font-mono">[Ninguna]</p>
                 <p id="timestamp" class="text-sm text-gray-500 mt-2">Hora de escaneo: N/A</p>
             </div>
 
             <div id="batch-list-area" class="p-4 bg-white rounded-xl border border-gray-300 max-h-64 overflow-y-auto">
-                <h3 class="font-bold text-lg text-gray-700 mb-2">Códigos en Lote</h3>
+                <h3 class="font-bold text-lg text-gray-700 mb-2">Series en Lote</h3>
                 <ul id="scanned-list" class="space-y-1 text-sm">
-                    <li class="text-gray-500" id="empty-message">Escanee un código para comenzar el lote.</li>
+                    <li class="text-gray-500" id="empty-message">Escanee series después del modelo.</li>
                 </ul>
             </div>
         </div>
@@ -70,7 +87,8 @@
         const SHEETS_WEB_APP_URL = "**PEGA_AQUÍ_LA_URL_DE_TU_APPS_SCRIPT**";
         // *******************************************************************
         
-        let batchData = []; // Lista donde se almacenarán todos los códigos escaneados
+        let batchData = []; // Lista donde se almacenarán los códigos de SERIE
+        let currentModel = null; // Almacena el código de MODELO
         
         const scannerInput = document.getElementById('scanner-input');
         const scannedDataElement = document.getElementById('scanned-data');
@@ -80,22 +98,43 @@
         const batchCountElement = document.getElementById('batch-count');
         const scannedListElement = document.getElementById('scanned-list');
         const emptyMessageElement = document.getElementById('empty-message');
+        const currentModelDisplay = document.getElementById('current-model-display');
+        const resetModelButton = document.getElementById('reset-model-button');
 
         function maintainFocus() {
             setTimeout(() => {
                 scannerInput.focus();
-                if (!statusArea.classList.contains('bg-green-100')) {
-                    statusArea.textContent = '✅ Listo para escanear. Apunta y dispara.';
-                    statusArea.classList.remove('bg-red-100', 'text-red-700', 'bg-red-500', 'text-white');
-                    statusArea.classList.add('bg-blue-100', 'text-blue-700');
+                // Actualiza el estado visual si no está en un proceso de envío
+                if (!statusArea.classList.contains('bg-yellow-500') && !statusArea.classList.contains('bg-red-500')) {
+                    if (currentModel) {
+                        statusArea.textContent = `✅ Listo para escanear SERIES. Modelo: ${currentModel}`;
+                        statusArea.classList.remove('bg-blue-100', 'text-blue-700');
+                        statusArea.classList.add('bg-green-100', 'text-green-700');
+                    } else {
+                        statusArea.textContent = '🟡 ESCANEE PRIMERO EL CÓDIGO DEL MODELO.';
+                        statusArea.classList.remove('bg-green-100', 'text-green-700');
+                        statusArea.classList.add('bg-blue-100', 'text-blue-700');
+                    }
                 }
             }, 50);
+        }
+
+        function resetModel() {
+            if (batchData.length > 0) {
+                alert("Advertencia: No se puede reiniciar el modelo con series pendientes. Por favor, envíe o recargue la página.");
+                return;
+            }
+            currentModel = null;
+            currentModelDisplay.textContent = "[Escanea el primer código para definir el Modelo]";
+            resetModelButton.disabled = true;
+            maintainFocus();
         }
 
         function updateBatchDisplay() {
             // Actualiza el contador y el estado del botón
             batchCountElement.textContent = batchData.length;
-            sendBatchButton.disabled = batchData.length === 0;
+            sendBatchButton.disabled = batchData.length === 0 || currentModel === null;
+            resetModelButton.disabled = currentModel === null || batchData.length > 0;
 
             // Actualiza la lista en pantalla
             scannedListElement.innerHTML = '';
@@ -107,51 +146,51 @@
                 batchData.forEach((item, index) => {
                     const li = document.createElement('li');
                     li.className = 'flex justify-between items-center p-1 border-b border-gray-100';
+                    // Muestra solo la serie, el modelo es el mismo para todo el lote
                     li.innerHTML = `
-                        <span class="font-mono text-gray-800">${item.codigo}</span>
+                        <span class="font-mono text-gray-800">${item.serie}</span>
                         <span class="text-xs text-gray-400">${item.timestamp.split(' ')[1]}</span>
                     `;
                     scannedListElement.appendChild(li);
                 });
-                // Desplazar al último elemento añadido
                 scannedListElement.scrollTop = scannedListElement.scrollHeight;
             }
         }
 
-        // Función para enviar todo el lote a Google Sheets
         async function sendBatchToSheets() {
-            if (batchData.length === 0) return;
+            if (batchData.length === 0 || !currentModel) return;
             if (SHEETS_WEB_APP_URL.includes("PEGA_AQUÍ_LA_URL_DE_TU_APPS_SCRIPT")) {
                 statusArea.textContent = '🔴 ERROR: URL de Apps Script no configurada.';
                 statusArea.classList.add('bg-red-500', 'text-white');
                 return;
             }
             
+            // Adjuntar el modelo a cada elemento antes de enviar
+            const dataToSend = batchData.map(item => ({
+                ...item, // Copia serie, longitud y timestamp
+                modelo: currentModel // Agrega el modelo a cada registro
+            }));
+
             // Cambiar estado a Enviando
-            const currentCount = batchData.length;
-            statusArea.textContent = `⏳ Enviando ${currentCount} códigos...`;
+            const currentCount = dataToSend.length;
+            statusArea.textContent = `⏳ Enviando ${currentCount} Series de Modelo ${currentModel}...`;
             statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-blue-100', 'text-blue-700');
             statusArea.classList.add('bg-yellow-500', 'text-white');
             sendBatchButton.disabled = true;
 
             try {
-                const response = await fetch(SHEETS_WEB_APP_URL, {
+                await fetch(SHEETS_WEB_APP_URL, {
                     method: 'POST',
                     mode: 'no-cors', 
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    // Enviamos el array completo de códigos
-                    body: JSON.stringify({ batch: batchData }) 
+                    body: JSON.stringify({ batch: dataToSend }) 
                 });
                 
-                // NOTA: Con 'no-cors', confiamos en la respuesta opaca como éxito.
-
                 // Si la solicitud fue enviada
-                statusArea.textContent = `🎉 ¡Lote de ${currentCount} códigos enviado con éxito!`;
-                statusArea.classList.remove('bg-yellow-500', 'text-white');
-                statusArea.classList.add('bg-green-100', 'text-green-700');
-
+                statusArea.textContent = `🎉 ¡Lote de ${currentCount} series enviado con éxito!`;
+                
                 // Limpiar la lista después del envío exitoso
                 batchData = []; 
                 scannedDataElement.textContent = "[Lote enviado, listo para el siguiente]";
@@ -160,43 +199,58 @@
             } catch (error) {
                 console.error('Error al enviar a Google Sheets:', error);
                 statusArea.textContent = '❌ Fallo de conexión o script al enviar a Sheets.';
-                statusArea.classList.remove('bg-yellow-500', 'text-white');
                 statusArea.classList.add('bg-red-500', 'text-white');
             } finally {
                 // Volver a actualizar la interfaz después del intento
                 updateBatchDisplay();
-                maintainFocus();
                 setTimeout(maintainFocus, 3000); // Dar 3 segundos de feedback visual
             }
         }
 
 
-        // Escucha de escaneo
+        // Escucha de escaneo principal
         scannerInput.addEventListener('change', function() {
             const scannedCode = this.value.trim();
 
             if (scannedCode) {
-                const now = new Date();
-                const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
-                
-                // 1. Mostrar el Resultado más reciente
-                scannedDataElement.textContent = scannedCode;
-                timestampElement.textContent = `Hora de escaneo: ${now.toLocaleTimeString()}`;
+                if (!currentModel) {
+                    // **MODO 1: Capturando el MODELO**
+                    currentModel = scannedCode;
+                    currentModelDisplay.textContent = currentModel;
+                    statusArea.textContent = `✅ ¡Modelo capturado! Comience a escanear las SERIES.`;
+                    statusArea.classList.remove('bg-blue-100', 'text-blue-700');
+                    statusArea.classList.add('bg-green-100', 'text-green-700');
+                    scannedDataElement.textContent = "[Modelo capturado. Esperando series...]";
+                    timestampElement.textContent = `Modelo: ${new Date().toLocaleTimeString()}`;
+                    resetModelButton.disabled = false;
 
-                // 2. Almacenar en la lista de lote
-                batchData.push({
-                    codigo: scannedCode,
-                    longitud: scannedCode.length,
-                    timestamp: formattedTime 
-                });
+                } else {
+                    // **MODO 2: Capturando las SERIES**
+                    const now = new Date();
+                    const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+                    
+                    // 1. Mostrar la Serie más reciente
+                    scannedDataElement.textContent = scannedCode;
+                    timestampElement.textContent = `Hora de escaneo: ${now.toLocaleTimeString()}`;
 
-                // 3. Actualizar la interfaz
-                updateBatchDisplay();
+                    // 2. Almacenar en la lista de lote (solo la serie)
+                    batchData.push({
+                        serie: scannedCode,
+                        longitud: scannedCode.length,
+                        timestamp: formattedTime 
+                    });
 
-                // 4. Limpiar el campo para el próximo escaneo
+                    // 3. Actualizar la interfaz
+                    updateBatchDisplay();
+
+                    // 4. Feedback visual rápido
+                    statusArea.textContent = `✔️ Serie añadida. Sigue escaneando...`;
+                    statusArea.classList.remove('bg-blue-100', 'text-blue-700');
+                    statusArea.classList.add('bg-green-100', 'text-green-700');
+                }
+
+                // Limpiar y re-enfocar
                 this.value = '';
-                
-                // 5. Volver a enfocar el campo
                 maintainFocus();
 
             } else {
