@@ -725,66 +725,106 @@
 
 
         // Escucha de escaneo principal
-        scannerInput.addEventListener('change', function() {
-            const scannedCode = this.value.trim();
+      // *******************************************************************
+// EL CÓDIGO DE ESCUCHA HA SIDO REEMPLAZADO POR UN TEMPORIZADOR
+// *******************************************************************
+let scanTimeout;
+const SCAN_SPEED_DELAY = 50; // 50 milisegundos (ms) de pausa significa que el escaneo terminó.
 
-            if (scannedCode) {
-                if (!currentModel) {
-                    currentModel = scannedCode;
-                    currentModelDisplay.textContent = currentModel;
-                    resetModelButton.disabled = false;
-                    
-                    statusArea.textContent = `✅ ¡Modelo capturado! Comience a escanear las SERIES.`;
-                    statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
-                    statusArea.classList.add('bg-green-100', 'text-green-700');
-                    scannedDataElement.textContent = `Modelo ${currentModel} capturado.`;
-                    timestampElement.textContent = `Hora: ${new Date().toLocaleTimeString()}`;
+function processScannedCode() {
+    const scannedCode = scannerInput.value.trim();
 
-                } else {
-                    const isDuplicate = batchData.some(item => item.serie === scannedCode);
+    if (scannedCode.length < 3 || currentModel === scannedCode) {
+        // Ignorar códigos muy cortos o si el código es igual al Modelo actual
+        scannerInput.value = '';
+        maintainFocus();
+        return;
+    }
 
-                    if (isDuplicate) {
-                        statusArea.textContent = `⚠️ DUPLICADO: La serie ${scannedCode} ya fue escaneada en este lote.`;
-                        statusArea.classList.remove('bg-green-100', 'text-green-700');
-                        statusArea.classList.add('bg-red-100', 'text-red-700');
-                        scannedDataElement.textContent = scannedCode; 
-                        timestampElement.textContent = `DUPLICADO detectado: ${new Date().toLocaleTimeString()}`;
-                        
-                    } else {
-                        const now = new Date();
-                        const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
-                        
-                        scannedDataElement.textContent = scannedCode;
-                        timestampElement.textContent = `Hora de escaneo: ${now.toLocaleTimeString()}`;
+    if (!currentModel) {
+        // **MODO 1: Capturando el MODELO**
+        currentModel = scannedCode;
+        currentModelDisplay.textContent = currentModel;
+        resetModelButton.disabled = false;
+        
+        statusArea.textContent = `✅ ¡Modelo capturado! Comience a escanear las SERIES.`;
+        statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+        statusArea.classList.add('bg-green-100', 'text-green-700');
+        scannedDataElement.textContent = `Modelo ${currentModel} capturado.`;
+        timestampElement.textContent = `Hora: ${new Date().toLocaleTimeString()}`;
 
-                        batchData.push({
-                            serie: scannedCode,
-                            longitud: scannedCode.length,
-                            timestamp: formattedTime 
-                        });
+    } else {
+        // **MODO 2: Capturando las SERIES**
+        
+        const isDuplicate = batchData.some(item => item.serie === scannedCode);
 
-                        updateBatchDisplay();
+        if (isDuplicate) {
+            statusArea.textContent = `⚠️ DUPLICADO: La serie ${scannedCode} ya fue escaneada en este lote.`;
+            statusArea.classList.remove('bg-green-100', 'text-green-700');
+            statusArea.classList.add('bg-red-100', 'text-red-700');
+            scannedDataElement.textContent = scannedCode; 
+            timestampElement.textContent = `DUPLICADO detectado: ${new Date().toLocaleTimeString()}`;
+            
+        } else {
+            const now = new Date();
+            const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+            
+            scannedDataElement.textContent = scannedCode;
+            timestampElement.textContent = `Hora de escaneo: ${now.toLocaleTimeString()}`;
 
-                        const actionType = currentReworkType !== "N/A" ? currentReworkType : (currentHospitalType !== "N/A" ? currentHospitalType : "N/A");
-                        if (actionType !== "N/A" && currentClient !== "N/A" && currentPaymentArea !== "N/A" && currentOrigin !== "N/A") {
-                           statusArea.textContent = `✔️ Serie añadida. LISTO PARA ENVIAR.`;
-                        } else {
-                           statusArea.textContent = `✔️ Serie añadida. Aún faltan criterios.`;
-                        }
-                        
-                        statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
-                        statusArea.classList.add('bg-green-100', 'text-green-700');
-                    }
-                }
+            batchData.push({
+                serie: scannedCode,
+                longitud: scannedCode.length,
+                timestamp: formattedTime 
+            });
 
-                this.value = '';
-                maintainFocus();
+            updateBatchDisplay();
 
+            const actionType = currentReworkType !== "N/A" ? currentReworkType : currentHospitalType;
+            if (actionType !== "N/A" && currentClient !== "N/A" && currentPaymentArea !== "N/A" && currentOrigin !== "N/A") {
+               statusArea.textContent = `✔️ Serie añadida. LISTO PARA ENVIAR.`;
             } else {
-                this.value = ''; 
-                maintainFocus();
+               statusArea.textContent = `✔️ Serie añadida. Aún faltan criterios.`;
             }
-        });
+            
+            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+            statusArea.classList.add('bg-green-100', 'text-green-700');
+        }
+    }
+    
+    // Lo más importante: Limpiar el campo para el siguiente escaneo
+    scannerInput.value = '';
+    maintainFocus();
+}
+
+
+// ESTA ES LA FUNCIÓN DE ESCUCHA QUE REEMPLAZA EL 'CHANGE'
+scannerInput.addEventListener('keyup', function(e) {
+    // Si el usuario presiona Enter, lo procesamos inmediatamente (aunque el escáner no lo haga)
+    if (e.key === 'Enter') {
+        clearTimeout(scanTimeout);
+        processScannedCode();
+        return;
+    }
+    
+    // Si la tecla presionada es un caracter válido (no Ctrl, Shift, etc.)
+    if (e.key.length === 1 || e.keyCode === 32 || (e.keyCode >= 48 && e.keyCode <= 90)) {
+        // 1. Limpia cualquier temporizador pendiente
+        clearTimeout(scanTimeout);
+
+        // 2. Establece un nuevo temporizador
+        // Si el temporizador expira sin otra pulsación de tecla, significa que el escaneo terminó
+        scanTimeout = setTimeout(function() {
+            if (scannerInput.value.trim().length > 0) {
+                 processScannedCode();
+            }
+        }, SCAN_SPEED_DELAY);
+    }
+});
+
+
+// Mantenemos la llamada a maintainFocus en onload para el inicio
+window.onload = maintainFocus;
 
         // Eventos de Foco
         document.body.addEventListener('click', maintainFocus);
