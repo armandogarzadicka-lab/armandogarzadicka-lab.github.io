@@ -169,13 +169,13 @@
     <script>
         // *******************************************************************
         // 🚀 URL DE TU GOOGLE APPS SCRIPT (YA ESTÁ PUESTA)
-        const SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxPe-C0wWz06CiriVYwKubese9rsswwBxQvBSpgstacUjP-6putBZj2XBITVK7StA6Ebg/exec";
+        const SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxOw8hQa3TTB9u-nhd3QXUMdOeefoqGIVwbQrXhJjSgjlFTRF1_diCzzyPCAjhtY1N8cg/exec";
         // *******************************************************************
         
         let batchData = []; 
         let currentModel = null;
         
-        // --- NUEVAS VARIABLES PARA ALMACENAR LA CLASIFICACIÓN ---
+        // --- VARIABLES PARA ALMACENAR LA CLASIFICACIÓN ---
         let currentReworkType = "N/A";
         let currentHospitalType = "N/A";
         
@@ -212,7 +212,7 @@
             reworkOptionsContainer.appendChild(button);
         });
         
-        // --- FUNCIONES DE MODAL Y CLASIFICACIÓN (MODIFICADAS) ---
+        // --- FUNCIONES DE MODAL Y CLASIFICACIÓN ---
 
         function showReworkModal() {
             reworkModal.classList.remove('hidden');
@@ -333,7 +333,6 @@
         }
         
         function deleteSeries(index) {
-            // ... (código existente, no requiere cambio) ...
             if (index > -1 && index < batchData.length) {
                 const deletedCode = batchData[index].serie;
                 batchData.splice(index, 1); 
@@ -348,16 +347,17 @@
         }
         window.deleteSeries = deleteSeries; 
 
-        // FUNCIÓN CLAVE: Controla el estado de los botones
+        // FUNCIÓN CLAVE: Controla el estado de los botones (MODIFICADA)
         function updateBatchDisplay() {
             batchCountElement.textContent = batchData.length;
             
             const isReady = batchData.length > 0 && currentModel !== null;
             const isClassified = currentReworkType !== "N/A" || currentHospitalType !== "N/A";
             
-            // Los botones de clasificación solo funcionan si hay datos Y AÚN NO HA SIDO CLASIFICADO
-            sendBatchButton.disabled = !isReady || isClassified; 
-            hospitalButton.disabled = !isReady || isClassified; 
+            // CAMBIO AQUÍ: Los botones de clasificación solo se deshabilitan si NO hay datos (isReady)
+            // Ya no se deshabilitan si ya hay una clasificación (isClassified)
+            sendBatchButton.disabled = !isReady; 
+            hospitalButton.disabled = !isReady; 
             
             // El botón FINALIZAR solo funciona si hay datos Y YA FUE CLASIFICADO
             completeBatchButton.disabled = !isReady || !isClassified; 
@@ -441,7 +441,7 @@
         }
 
 
-        // Escucha de escaneo principal (sin cambios funcionales)
+        // Escucha de escaneo principal
         scannerInput.addEventListener('change', function() {
             const scannedCode = this.value.trim();
 
@@ -461,7 +461,12 @@
                     const isDuplicate = batchData.some(item => item.serie === scannedCode);
 
                     if (isDuplicate) {
-                        // ...
+                        statusArea.textContent = `⚠️ DUPLICADO: La serie ${scannedCode} ya fue escaneada en este lote.`;
+                        statusArea.classList.remove('bg-green-100', 'text-green-700');
+                        statusArea.classList.add('bg-red-100', 'text-red-700');
+                        scannedDataElement.textContent = scannedCode; 
+                        timestampElement.textContent = `DUPLICADO detectado: ${new Date().toLocaleTimeString()}`;
+                        
                     } else {
                         const now = new Date();
                         const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
