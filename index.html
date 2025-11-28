@@ -407,20 +407,27 @@
         }
 
         function hideInsumosModal() {
-            // Desactiva la bandera
-            isCapturingInsumo = false;
-            // Limpiamos el campo visual y volvemos al estado normal
-            insumoVisualDisplay.value = '';
-            insumosModal.classList.add('hidden');
-            updateBatchDisplay();
-            maintainFocus(); 
-        }
+    isCapturingInsumo = false; // Desactiva la bandera
+    insumoVisualDisplay.value = '';
+    cantidadDisplay.textContent = '1'; // Resetear cantidad
+    insumosModal.classList.add('hidden');
+    deactivateInsumoScanner();
+    updateBatchDisplay();
+    maintainFocus(); 
+}
         
         function cancelInsumoCapture() {
-            if (confirm("ADVERTENCIA: ¿Desea descartar los insumos registrados en esta sesión?")) {
-                insumosData = []; // Descartar los insumos
-                hideInsumosModal();
-            }
+    if (insumosData.length > 0) {
+        if (confirm("ADVERTENCIA: ¿Desea descartar los insumos registrados y perder estos datos?")) {
+            insumosData = []; // Borrar los insumos
+            updateBatchDisplay();
+            hideInsumosModal();
+        }
+    } else {
+        hideInsumosModal();
+    }
+}
+window.cancelInsumoCapture = cancelInsumoCapture;
         }
         
         function deleteInsumo(index) {
@@ -430,20 +437,20 @@
         }
         window.deleteInsumo = deleteInsumo; 
 
-        function addInsumo() {
-            const modeloInsumo = insumoVisualDisplay.value.trim();
-            const cantidad = parseInt(cantidadInput.value);
-            
-            if (!modeloInsumo || modeloInsumo === 'Modelo escaneado...') { alert("Escanee el Modelo del Insumo."); scannerInput.focus(); return; }
-            if (isNaN(cantidad) || cantidad <= 0) { alert("La cantidad debe ser un número positivo."); cantidadInput.focus(); return; }
-            
-            insumosData.push({ modelo: modeloInsumo, cantidad: cantidad });
-            updateInsumosDisplay();
-            
-            insumoVisualDisplay.value = '';
-            cantidadInput.value = '1';
-            scannerInput.focus(); // Devuelve el foco al scannerInput
-        }
+   function addInsumo() {
+    const modeloInsumo = insumoVisualDisplay.value.trim();
+    const cantidad = parseInt(cantidadDisplay.textContent.trim()); // Usar el campo táctil
+    
+    if (!modeloInsumo || modeloInsumo === 'Modelo escaneado...') { alert("Escanee el Modelo del Insumo."); scannerInput.focus(); return; }
+    if (isNaN(cantidad) || cantidad <= 0) { alert("La cantidad debe ser un número positivo."); return; } 
+    
+    insumosData.push({ modelo: modeloInsumo, cantidad: cantidad });
+    updateInsumosDisplay();
+    
+    insumoVisualDisplay.value = ''; // Limpia el campo visual
+    cantidadDisplay.textContent = '1'; // Resetea la cantidad
+    scannerInput.focus(); // Devuelve el foco al scannerInput para el siguiente insumo
+}
 
         function updateInsumosDisplay() {
             registerInsumosButton.disabled = batchData.length === 0;
