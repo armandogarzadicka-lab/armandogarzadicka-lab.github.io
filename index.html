@@ -330,52 +330,58 @@
         // *******************************************************************
         // FUNCIÓN DE ENVÍO UNIFICADA
         // *******************************************************************
+        
         async function sendBatchToSheets(reworkType, hospitalType) {
-            if (batchData.length === 0 || !currentModel) return;
-            
-            // Adjuntamos el tipo de re-trabajo Y hospital a CADA registro
-            const dataToSend = batchData.map(item => ({
-                ...item,
-                modelo: currentModel,
-                rework: reworkType, // Tipo de Re-trabajo (NOM, Artesanal, N/A)
-                hospital: hospitalType // Tipo de Hospital (Rojo, Verde, N/A)
-            }));
+    if (batchData.length === 0 || !currentModel) return;
+    
+    // --- Lógica de Mapeo de Datos CORREGIDA ---
+    // Adjuntamos el tipo de re-trabajo Y hospital a CADA registro
+    const dataToSend = batchData.map(item => ({
+        // Copiamos los datos básicos de la serie
+        timestamp: item.timestamp,
+        modelo: currentModel,
+        serie: item.serie,
+        longitud: item.longitud,
+        // Agregamos los campos de la modal que son iguales para todo el lote
+        rework: reworkType,    // <--- Tipo de Re-trabajo
+        hospital: hospitalType // <--- Tipo de Hospital
+    }));
 
-            const currentCount = dataToSend.length;
-            const actionType = reworkType !== "N/A" ? reworkType : hospitalType;
+    // El resto de la función sigue igual (envío y limpieza)
+    const currentCount = dataToSend.length;
+    const actionType = reworkType !== "N/A" ? reworkType : hospitalType;
 
-            statusArea.textContent = `⏳ Enviando ${currentCount} Series (${actionType})...`;
-            statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
-            statusArea.classList.add('bg-yellow-500', 'text-white');
-            sendBatchButton.disabled = true;
-            hospitalButton.disabled = true;
+    statusArea.textContent = `⏳ Enviando ${currentCount} Series (${actionType})...`;
+    statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+    statusArea.classList.add('bg-yellow-500', 'text-white');
+    sendBatchButton.disabled = true;
+    hospitalButton.disabled = true;
 
-            try {
-                await fetch(SHEETS_WEB_APP_URL, {
-                    method: 'POST',
-                    mode: 'no-cors', 
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ batch: dataToSend }) 
-                });
-                
-                statusArea.textContent = `🎉 ¡Lote enviado con éxito! (${actionType})`;
-                
-                batchData = []; 
-                scannedDataElement.textContent = "[Lote enviado, listo para el siguiente Modelo]";
-                timestampElement.textContent = `Último envío: ${new Date().toLocaleTimeString()} (${new Date().toLocaleDateString()})`;
-                
-            } catch (error) {
-                console.error('Error al enviar a Google Sheets:', error);
-                statusArea.textContent = '❌ Fallo de conexión al enviar a Sheets.';
-                statusArea.classList.add('bg-red-500', 'text-white');
-            } finally {
-                updateBatchDisplay();
-                setTimeout(maintainFocus, 3000); 
-            }
-        }
-
+    try {
+        await fetch(SHEETS_WEB_APP_URL, {
+            method: 'POST',
+            mode: 'no-cors', 
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ batch: dataToSend }) 
+        });
+        
+        statusArea.textContent = `🎉 ¡Lote enviado con éxito! (${actionType})`;
+        
+        batchData = []; 
+        scannedDataElement.textContent = "[Lote enviado, listo para el siguiente Modelo]";
+        timestampElement.textContent = `Último envío: ${new Date().toLocaleTimeString()} (${new Date().toLocaleDateString()})`;
+        
+    } catch (error) {
+        console.error('Error al enviar a Google Sheets:', error);
+        statusArea.textContent = '❌ Fallo de conexión al enviar a Sheets.';
+        statusArea.classList.add('bg-red-500', 'text-white');
+    } finally {
+        updateBatchDisplay();
+        setTimeout(maintainFocus, 3000); 
+    }
+}
 
         // Escucha de escaneo principal
         scannerInput.addEventListener('change', function() {
