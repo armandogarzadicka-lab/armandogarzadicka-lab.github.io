@@ -1,22 +1,22 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner de Lotes, Clasificación e Insumos</title>
+    <title>Escáner de Modelo y Series por Lotes - Origen</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            background-color: #e5e7eb;
         }
         .delete-btn {
             line-height: 1;
         }
         /* Estilo para la Modal */
         .modal {
-            background-color: rgba(0, 0, 0, 0.6);
+            background-color: rgba(0, 0, 0, 0.6); /* Fondo semi-transparente */
         }
     </style>
 </head>
@@ -25,10 +25,10 @@
     <div class="w-full max-w-4xl mx-auto bg-white p-8 md:p-10 rounded-xl shadow-2xl">
         <header class="text-center mb-10">
             <h1 class="text-3xl md:text-4xl font-extrabold text-teal-600">
-                Modelo + Series + Insumos 🏷️
+                Modelo + Series por Lotes 🏷️
             </h1>
             <p class="text-gray-500 mt-2">
-                Escanea el Modelo, clasifica la acción y registra los insumos.
+                Escanea el Modelo una vez, y luego todas las Series.
             </p>
         </header>
 
@@ -102,7 +102,7 @@
             <button
                 id="origin-button"
                 class="py-4 rounded-xl shadow-lg text-xs md:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                onclick="promptOrigin()"
+                onclick="showOriginModal()"
                 disabled
             >
                 📍 Origen
@@ -135,139 +135,144 @@
                 LOTE TERMINADO (Generar ID)
             </button>
         </div>
-
-    </div>
+        </div>
 
     <div id="rework-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden">
         <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
-            <h2 class="text-2xl font-bold text-indigo-700 mb-4">Seleccione Tipo de Re-trabajo</h2>
-            <p class="text-gray-600 mb-6">Elija la acción que se realizó en este lote de series.</p>
-            <div id="rework-options" class="space-y-3"></div>
+            <h2 class="text-2xl font-bold text-indigo-700 mb-4">
+                Seleccione Tipo de Re-trabajo
+            </h2>
+            <p class="text-gray-600 mb-6">
+                Elija la acción que se realizó en este lote de series.
+            </p>
+
+            <div id="rework-options" class="space-y-3">
+                </div>
+            
             <div class="mt-6 flex justify-end">
-                <button onclick="hideReworkModal()" class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition">Cancelar</button>
+                <button
+                    onclick="hideReworkModal()"
+                    class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+                >
+                    Cancelar
+                </button>
             </div>
         </div>
     </div>
 
     <div id="hospital-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden">
         <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
-            <h2 class="text-2xl font-bold text-red-700 mb-4">Seleccione Ruta de Hospital</h2>
-            <p class="text-gray-600 mb-6">¿A qué área debe ser dirigida la falla?</p>
+            <h2 class="text-2xl font-bold text-red-700 mb-4">
+                Seleccione Ruta de Hospital
+            </h2>
+            <p class="text-gray-600 mb-6">
+                ¿A qué área debe ser dirigida la falla?
+            </p>
+
             <div class="space-y-4">
-                <button onclick="selectHospitalType('Hospital Verde')" class="w-full py-4 px-4 rounded-lg text-lg font-bold text-white bg-green-600 hover:bg-green-700 transition shadow-md">🟢 Hospital Verde</button>
-                <button onclick="selectHospitalType('Hospital Rojo')" class="w-full py-4 px-4 rounded-lg text-lg font-bold text-white bg-red-600 hover:bg-red-700 transition shadow-md">🔴 Hospital Rojo</button>
+                <button
+                    onclick="selectHospitalType('Hospital Verde')"
+                    class="w-full py-4 px-4 rounded-lg text-lg font-bold text-white bg-green-600 hover:bg-green-700 transition shadow-md"
+                >
+                    🟢 Hospital Verde
+                </button>
+                <button
+                    onclick="selectHospitalType('Hospital Rojo')"
+                    class="w-full py-4 px-4 rounded-lg text-lg font-bold text-white bg-red-600 hover:bg-red-700 transition shadow-md"
+                >
+                    🔴 Hospital Rojo
+                </button>
             </div>
+            
             <div class="mt-6 flex justify-end">
-                <button onclick="hideHospitalModal()" class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition">Cancelar</button>
+                <button
+                    onclick="hideHospitalModal()"
+                    class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+                >
+                    Cancelar
+                </button>
             </div>
         </div>
     </div>
 
     <div id="payment-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden">
         <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
-            <h2 class="text-2xl font-bold text-orange-700 mb-4">Seleccione Área a Pagar</h2>
-            <p class="text-gray-600 mb-6">Elija la causa del costo de re-trabajo.</p>
-            <div id="payment-options" class="space-y-3"></div>
+            <h2 class="text-2xl font-bold text-orange-700 mb-4">
+                Seleccione Área a Pagar
+            </h2>
+            <p class="text-gray-600 mb-6">
+                Elija la causa del costo de re-trabajo.
+            </p>
+
+            <div id="payment-options" class="space-y-3">
+                </div>
+            
             <div class="mt-6 flex justify-end">
-                <button onclick="hidePaymentModal()" class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition">Cancelar</button>
+                <button
+                    onclick="hidePaymentModal()"
+                    class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+                >
+                    Cancelar
+                </button>
             </div>
         </div>
     </div>
 
     <div id="client-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden">
         <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
-            <h2 class="text-2xl font-bold text-green-700 mb-4">Seleccione Cliente</h2>
-            <p class="text-gray-600 mb-4">Seleccione el cliente asociado al lote.</p>
-            <select id="client-select" class="w-full p-3 border border-gray-300 rounded-lg text-gray-700 mb-6"></select>
+            <h2 class="text-2xl font-bold text-green-700 mb-4">
+                Seleccione Cliente
+            </h2>
+            <p class="text-gray-600 mb-4">
+                Seleccione el cliente asociado al lote.
+            </p>
+
+            <select id="client-select" class="w-full p-3 border border-gray-300 rounded-lg text-gray-700 mb-6">
+                </select>
+            
             <div class="mt-6 flex justify-end gap-3">
-                <button onclick="hideClientModal()" class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition">Cancelar</button>
-                 <button onclick="selectClient()" class="py-2 px-4 rounded-lg text-white bg-green-600 hover:bg-green-700 transition">Aceptar</button>
+                <button
+                    onclick="hideClientModal()"
+                    class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+                >
+                    Cancelar
+                </button>
+                 <button
+                    onclick="selectClient()"
+                    class="py-2 px-4 rounded-lg text-white bg-green-600 hover:bg-green-700 transition"
+                >
+                    Aceptar
+                </button>
             </div>
         </div>
     </div>
 
     <div id="origin-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden">
         <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
-            <h2 class="text-2xl font-bold text-blue-700 mb-4">Seleccione Origen del Producto</h2>
-            <p class="text-gray-600 mb-6">Elija la fuente inicial del problema o acción.</p>
-            <div id="origin-options" class="space-y-3"></div>
-            <div class="mt-6 flex justify-end">
-                <button onclick="hideOriginModal()" class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition">Cancelar</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="insumos-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">
-                🛒 Registrar Insumos Usados
+            <h2 class="text-2xl font-bold text-blue-700 mb-4">
+                Seleccione Origen del Producto
             </h2>
             <p class="text-gray-600 mb-6">
-                Escanee el Modelo del Insumo y agregue la cantidad.
+                Elija la fuente inicial del problema o acción.
             </p>
 
-            <div class="mb-4">
-                <label for="insumo-input" class="block text-sm font-medium text-gray-700">
-                    Modelo de Insumo (Escanear aquí)
-                </label>
-                <input 
-                    type="text" 
-                    id="insumo-input" 
-                    class="mt-1 block w-full p-3 border border-gray-300 rounded-lg text-lg font-mono focus:ring-teal-500 focus:border-teal-500" 
-                    placeholder="Escanee el modelo de insumo..."
-                >
-            </div>
-
-            <div class="mb-4">
-                <label for="cantidad-input" class="block text-sm font-medium text-gray-700">
-                    Cantidad Usada
-                </label>
-                <input 
-                    type="number" 
-                    id="cantidad-input" 
-                    class="mt-1 block w-full p-3 border border-gray-300 rounded-lg text-lg font-mono focus:ring-teal-500 focus:border-teal-500" 
-                    value="1"
-                    min="1"
-                    inputmode="decimal" 
-                >
-            </div>
+            <div id="origin-options" class="space-y-3">
+                </div>
             
-            <div id="insumos-list" class="p-4 bg-gray-50 rounded-lg max-h-40 overflow-y-auto mb-6 border border-gray-200">
-                <h4 class="font-semibold text-gray-700 mb-2">Insumos Añadidos:</h4>
-                <ul id="insumos-scanned-list" class="space-y-1 text-sm">
-                    <li class="text-gray-500" id="empty-insumo-message">Aún no hay insumos.</li>
-                </ul>
-            </div>
-
-            <div class="flex justify-between items-center pt-4 border-t border-gray-100">
+            <div class="mt-6 flex justify-end">
                 <button
-                    id="add-insumo-button"
-                    onclick="addInsumo()"
-                    class="py-3 px-6 rounded-lg text-white font-bold bg-teal-600 hover:bg-teal-700 transition"
+                    onclick="hideOriginModal()"
+                    class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition"
                 >
-                    ➕ Agregar Insumo
-                </button>
-                 <button
-                    id="finish-insumo-button"
-                    onclick="finalizeBatchAndSend()"
-                    class="py-3 px-6 rounded-lg text-white font-bold bg-gray-800 hover:bg-gray-900 transition"
-                >
-                    ✅ Finalizar Lote y Enviar
+                    Cancelar
                 </button>
             </div>
-
-            <button
-                onclick="cancelInsumoCapture()"
-                class="mt-4 w-full py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition"
-            >
-                Cancelar y Volver al Escaneo
-            </button>
         </div>
     </div>
     <script>
         // *******************************************************************
         // 🚀 URL DE TU GOOGLE APPS SCRIPT (YA ESTÁ PUESTA)
-        const SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyd6f0qF0rmUSuEIBcAAeVfXGzfwSM0c0QYuY36HApSEWTjkiN41e5Y9fhEt767XrP6TQ/exec";
+        const SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbze22qUd4AEtWvVxc8shBojPAUQjMvgW_rHYcYYmln-L0oD6eTaf2N946VvQLh3jbFj/exec";
         // *******************************************************************
         
         let batchData = []; 
@@ -278,9 +283,8 @@
         let currentHospitalType = "N/A";
         let currentPaymentArea = "N/A"; 
         let currentClient = "N/A"; 
-        let currentOrigin = "N/A";
-        let insumosData = []; // Datos de Insumos
-
+        let currentOrigin = "N/A"; // NUEVA
+        
         // --- CONSTANTES ---
         const REWORK_TYPES = [
             "NOM", "Artesanal", "Especial", "Reforzado", "Termoencogible", "Bolsa / Esquinero", "Runners", "Empaque de cartón", "Inspeccion"
@@ -291,7 +295,7 @@
         const CLIENTS = [ 
             "Liverpool", "Palacio de Hierro", "Encanto", "Sears", "Elektra", "Chedraui", "Walmart", "KB&C", "Soriana", "Tiendas DLM", "D2C", "Costco", "Bodega SAPI", "Contencion", "Otro"
         ];
-        const ORIGIN_OPTIONS = [ 
+        const ORIGIN_OPTIONS = [ // NUEVAS OPCIONES
             "Rechazo", "CUA", "Operaciones", "Req. Cliente", "Devolucion", "Incidente Almacen"
         ];
         
@@ -302,35 +306,18 @@
         const hospitalButton = document.getElementById('hospital-button');
         const paymentButton = document.getElementById('payment-button');
         const clientButton = document.getElementById('client-button');
-        const originButton = document.getElementById('origin-button');
+        const originButton = document.getElementById('origin-button'); // NUEVO BOTÓN
         const completeBatchButton = document.getElementById('complete-batch-button'); 
-        
         const reworkModal = document.getElementById('rework-modal');
         const hospitalModal = document.getElementById('hospital-modal'); 
         const paymentModal = document.getElementById('payment-modal'); 
         const clientModal = document.getElementById('client-modal');
-        const originModal = document.getElementById('origin-modal');
-        const insumosModal = document.getElementById('insumos-modal'); // NUEVO
-        
+        const originModal = document.getElementById('origin-modal'); // NUEVA MODAL
         const reworkOptionsContainer = document.getElementById('rework-options');
         const paymentOptionsContainer = document.getElementById('payment-options'); 
-        const originOptionsContainer = document.getElementById('origin-options');
+        const originOptionsContainer = document.getElementById('origin-options'); // NUEVO CONTENEDOR
         const clientSelect = document.getElementById('client-select');
 
-        // Variables de Insumos
-        const insumoInput = document.getElementById('insumo-input');
-        const cantidadInput = document.getElementById('cantidad-input');
-        const insumosScannedList = document.getElementById('insumos-scanned-list');
-        const emptyInsumoMessage = document.getElementById('empty-insumo-message');
-        let insumoScanTimeout; 
-        const INSUMO_SCAN_DELAY = 50; 
-        
-        // Variables de escaneo principal
-        let scanTimeout;
-        const MAIN_SCAN_DELAY = 50;
-
-
-        // Variables de display
         const scannedDataElement = document.getElementById('scanned-data');
         const timestampElement = document.getElementById('timestamp');
         const batchCountElement = document.getElementById('batch-count');
@@ -339,212 +326,241 @@
         const currentModelDisplay = document.getElementById('current-model-display');
         const resetModelButton = document.getElementById('reset-model-button');
 
-        // --- INICIALIZACIÓN DE MODALES Y LISTENERS ---
-
-        // Función de inicialización de Modales
-        function initializeModals() {
-            // Re-trabajo
-            REWORK_TYPES.forEach(type => {
-                const button = document.createElement('button');
-                button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md';
-                button.textContent = type;
-                button.onclick = () => selectReworkType(type);
-                reworkOptionsContainer.appendChild(button);
-            });
-            
-            // Área a Pagar
-            PAYMENT_AREAS.forEach(type => {
-                const button = document.createElement('button');
-                button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 transition shadow-md';
-                button.textContent = type;
-                button.onclick = () => selectPaymentArea(type);
-                paymentOptionsContainer.appendChild(button);
-            });
-            
-            // Origen
-            ORIGIN_OPTIONS.forEach(type => {
-                const button = document.createElement('button');
-                const backgroundColor = type === 'Rechazo' || type === 'Devolucion' ? 'bg-pink-600' : 'bg-blue-600';
-                button.className = `w-full py-3 px-4 rounded-lg text-sm font-semibold text-white ${backgroundColor} hover:${backgroundColor.replace('600', '700')} transition shadow-md`;
-                button.textContent = type;
-                button.onclick = () => selectOrigin(type);
-                originOptionsContainer.appendChild(button);
-            });
-
-            // Cliente
-            const initialOption = document.createElement('option');
-            initialOption.value = "";
-            initialOption.textContent = "--- Seleccione el Cliente ---";
-            clientSelect.appendChild(initialOption);
-            CLIENTS.forEach(client => {
-                const option = document.createElement('option');
-                option.value = client;
-                option.textContent = client;
-                clientSelect.appendChild(option);
-            });
-        }
+        // Inicializar opciones de la modal de Re-trabajo
+        REWORK_TYPES.forEach(type => {
+            const button = document.createElement('button');
+            button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md';
+            button.textContent = type;
+            button.onclick = () => selectReworkType(type);
+            reworkOptionsContainer.appendChild(button);
+        });
         
-        // --- FUNCIONES DE MODAL ---
-
-        function showReworkModal() { reworkModal.classList.remove('hidden'); scannerInput.blur(); }
-        function hideReworkModal() { reworkModal.classList.add('hidden'); maintainFocus(); }
-        function showHospitalModal() { if (batchData.length > 0) { hospitalModal.classList.remove('hidden'); scannerInput.blur(); }}
-        function hideHospitalModal() { hospitalModal.classList.add('hidden'); maintainFocus(); }
-        function showPaymentModal() { if (batchData.length > 0) { paymentModal.classList.remove('hidden'); scannerInput.blur(); }}
-        function hidePaymentModal() { paymentModal.classList.add('hidden'); maintainFocus(); }
-        function showClientModal() { if (batchData.length > 0) { clientModal.classList.remove('hidden'); scannerInput.blur(); }}
-        function hideClientModal() { clientModal.classList.add('hidden'); maintainFocus(); }
-        function showOriginModal() { if (batchData.length > 0) { originModal.classList.remove('hidden'); scannerInput.blur(); }}
-        function hideOriginModal() { originModal.classList.add('hidden'); maintainFocus(); }
+        // Inicializar opciones de la modal de Área a Pagar
+        PAYMENT_AREAS.forEach(type => {
+            const button = document.createElement('button');
+            button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 transition shadow-md';
+            button.textContent = type;
+            button.onclick = () => selectPaymentArea(type);
+            paymentOptionsContainer.appendChild(button);
+        });
         
-        function promptReworkType() { if (batchData.length > 0) { showReworkModal(); }}
-        function promptPaymentArea() { if (batchData.length > 0) { showPaymentModal(); }}
-        function promptOrigin() { if (batchData.length > 0) { showOriginModal(); }}
-
-
-        // --- LÓGICA DEL ESCÁNER PRINCIPAL (MODIFICADA A keyup) ---
-
-        function processScannedCode() {
-            const scannedCode = scannerInput.value.trim();
-            if (scannedCode.length < 3) {
-                 scannerInput.value = '';
-                 maintainFocus();
-                 return;
-            }
-
-            if (!currentModel) {
-                currentModel = scannedCode;
-                currentModelDisplay.textContent = currentModel;
-                resetModelButton.disabled = false;
-                statusArea.textContent = `✅ ¡Modelo capturado! Comience a escanear las SERIES.`;
-                statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
-                statusArea.classList.add('bg-green-100', 'text-green-700');
-                scannedDataElement.textContent = `Modelo ${currentModel} capturado.`;
-                timestampElement.textContent = `Hora: ${new Date().toLocaleTimeString()}`;
-
-            } else {
-                const isDuplicate = batchData.some(item => item.serie === scannedCode);
-
-                if (isDuplicate) {
-                    statusArea.textContent = `⚠️ DUPLICADO: La serie ${scannedCode} ya fue escaneada en este lote.`;
-                    statusArea.classList.remove('bg-green-100', 'text-green-700');
-                    statusArea.classList.add('bg-red-100', 'text-red-700');
-                    scannedDataElement.textContent = scannedCode; 
-                    timestampElement.textContent = `DUPLICADO detectado: ${new Date().toLocaleTimeString()}`;
-                    
-                } else {
-                    const now = new Date();
-                    const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
-                    
-                    scannedDataElement.textContent = scannedCode;
-                    timestampElement.textContent = `Hora de escaneo: ${now.toLocaleTimeString()}`;
-
-                    batchData.push({
-                        serie: scannedCode,
-                        longitud: scannedCode.length,
-                        timestamp: formattedTime 
-                    });
-
-                    updateBatchDisplay();
-
-                    const actionType = currentReworkType !== "N/A" ? currentReworkType : (currentHospitalType !== "N/A" ? currentHospitalType : "N/A");
-                    if (actionType !== "N/A" && currentClient !== "N/A" && currentPaymentArea !== "N/A" && currentOrigin !== "N/A") {
-                       statusArea.textContent = `✔️ Serie añadida. LISTO PARA ENVIAR.`;
-                    } else {
-                       statusArea.textContent = `✔️ Serie añadida. Aún faltan criterios.`;
-                    }
-                    
-                    statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
-                    statusArea.classList.add('bg-green-100', 'text-green-700');
-                }
-            }
-
-            scannerInput.value = '';
-            maintainFocus();
-        }
-
-        scannerInput.addEventListener('keyup', function(e) {
-            if (e.key === 'Enter') {
-                clearTimeout(scanTimeout);
-                processScannedCode();
-                return;
-            }
-            
-            if (e.key.length === 1 || e.keyCode === 32 || (e.keyCode >= 48 && e.keyCode <= 90)) {
-                clearTimeout(scanTimeout);
-                scanTimeout = setTimeout(function() {
-                    if (scannerInput.value.trim().length > 0) {
-                         processScannedCode();
-                    }
-                }, MAIN_SCAN_DELAY);
-            }
+        // Inicializar opciones de la modal de Origen (NUEVO)
+        ORIGIN_OPTIONS.forEach(type => {
+            const button = document.createElement('button');
+            button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition shadow-md';
+            button.textContent = type;
+            button.onclick = () => selectOrigin(type);
+            originOptionsContainer.appendChild(button);
         });
 
-        // --- FUNCIONES DE SELECCIÓN DE CLASIFICACIÓN (MÁS LIMPIEZA CRUZADA) ---
+        // Inicializar opciones de la modal de Cliente
+        const initialOption = document.createElement('option');
+        initialOption.value = "";
+        initialOption.textContent = "--- Seleccione el Cliente ---";
+        clientSelect.appendChild(initialOption);
 
+        CLIENTS.forEach(client => {
+            const option = document.createElement('option');
+            option.value = client;
+            option.textContent = client;
+            clientSelect.appendChild(option);
+        });
+
+        // --- FUNCIONES DE MODAL ---
+
+        function showReworkModal() {
+            reworkModal.classList.remove('hidden');
+            scannerInput.blur(); 
+        }
+
+        function hideReworkModal() {
+            reworkModal.classList.add('hidden');
+            maintainFocus(); 
+        }
+
+        function showHospitalModal() { 
+            if (batchData.length > 0) {
+                 hospitalModal.classList.remove('hidden');
+                 scannerInput.blur(); 
+            }
+        }
+        
+        function hideHospitalModal() { 
+            hospitalModal.classList.add('hidden');
+            maintainFocus(); 
+        }
+        
+        function showPaymentModal() {
+             if (batchData.length > 0) {
+                 paymentModal.classList.remove('hidden');
+                 scannerInput.blur(); 
+            }
+        }
+        
+        function hidePaymentModal() {
+            paymentModal.classList.add('hidden');
+            maintainFocus(); 
+        }
+        
+        function showClientModal() { 
+             if (batchData.length > 0) {
+                 clientModal.classList.remove('hidden');
+                 scannerInput.blur(); 
+            }
+        }
+        
+        function hideClientModal() { 
+            clientModal.classList.add('hidden');
+            maintainFocus(); 
+        }
+        
+        function showOriginModal() { // NUEVA FUNCIÓN
+             if (batchData.length > 0) {
+                 originModal.classList.remove('hidden');
+                 scannerInput.blur(); 
+            }
+        }
+        
+        function hideOriginModal() { // NUEVA FUNCIÓN
+            originModal.classList.add('hidden');
+            maintainFocus(); 
+        }
+
+        function promptReworkType() {
+             if (batchData.length > 0) {
+                showReworkModal();
+            }
+        }
+        
+        function promptPaymentArea() { 
+             if (batchData.length > 0) {
+                showPaymentModal();
+            }
+        }
+        
+        function promptOrigin() { // NUEVA FUNCIÓN
+             if (batchData.length > 0) {
+                showOriginModal();
+            }
+        }
+        
+
+        // --- FUNCIONES DE SELECCIÓN ---
+
+        // CLASIFICACIÓN 1: Re-trabajo
         function selectReworkType(type) {
             hideReworkModal();
             currentReworkType = type; 
-            currentHospitalType = "N/A"; // MUTUAMENTE EXCLUYENTE con Hospital
+            currentHospitalType = "N/A"; // Limpia Hospital
             updateBatchDisplay();
-            statusArea.textContent = `✅ Acción: ${type}. Presione "LOTE TERMINADO" para enviar.`;
+            
+            const actionType = currentReworkType !== "N/A" ? currentReworkType : currentHospitalType;
+            statusArea.textContent = `✅ Acción: ${actionType}. Faltan Costo, Cliente y Origen.`;
             statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
             statusArea.classList.add('bg-green-100', 'text-green-700');
         }
 
+        // CLASIFICACIÓN 2: Hospital
         function selectHospitalType(type) { 
             hideHospitalModal();
             currentHospitalType = type; 
-            currentReworkType = "N/A"; // MUTUAMENTE EXCLUYENTE con Re-trabajo
+            currentReworkType = "N/A"; // Limpia Re-trabajo
             updateBatchDisplay();
-            statusArea.textContent = `✅ Acción: ${type}. Presione "LOTE TERMINADO" para enviar.`;
+            
+            const actionType = currentReworkType !== "N/A" ? currentReworkType : currentHospitalType;
+            statusArea.textContent = `✅ Acción: ${actionType}. Faltan Costo, Cliente y Origen.`;
             statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
             statusArea.classList.add('bg-green-100', 'text-green-700');
         }
         
+        // CLASIFICACIÓN 3: Área a Pagar
         function selectPaymentArea(type) { 
             hidePaymentModal();
             currentPaymentArea = type; 
             updateBatchDisplay();
-            statusArea.textContent = `✅ Costo: ${type}. Presione "LOTE TERMINADO" para enviar.`;
+            
+            statusArea.textContent = `✅ Costo: ${type}. Faltan Acción, Cliente y Origen.`;
             statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
             statusArea.classList.add('bg-green-100', 'text-green-700');
         }
         
+        // CLASIFICACIÓN 4: Cliente
         function selectClient() {
             const selectedClient = clientSelect.value;
-            if (!selectedClient) { alert("Por favor, seleccione un Cliente."); return; }
+            
+            if (!selectedClient) {
+                alert("Por favor, seleccione un Cliente.");
+                return;
+            }
+
             hideClientModal();
             currentClient = selectedClient; 
             updateBatchDisplay();
-            statusArea.textContent = `✅ Cliente: ${selectedClient}. Presione "LOTE TERMINADO" para enviar.`;
+            
+            statusArea.textContent = `✅ Cliente: ${selectedClient}. Faltan Acción, Costo y Origen.`;
             statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
             statusArea.classList.add('bg-green-100', 'text-green-700');
         }
         
-        function selectOrigin(type) { 
+        // CLASIFICACIÓN 5: Origen (NUEVO)
+        function selectOrigin(type) {
             hideOriginModal();
             currentOrigin = type; 
             updateBatchDisplay();
-            statusArea.textContent = `✅ Origen: ${type}. Presione "LOTE TERMINADO" para enviar.`;
+            
+            statusArea.textContent = `✅ Origen: ${type}. Faltan Acción, Costo y Cliente.`;
             statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
             statusArea.classList.add('bg-green-100', 'text-green-700');
         }
 
 
-        // --- FUNCIONES DE LÓGICA PRINCIPAL ---
+        // FUNCIÓN CLAVE: Envío final (APLICA LA REGLA DE CUATRO CRITERIOS)
+        function completeBatch() {
+            if (batchData.length === 0 || !currentModel) return;
+            
+            // Regla de Negocio: Se requieren 4 criterios independientes
+            const actionIsDefined = currentReworkType !== "N/A" || currentHospitalType !== "N/A";
+            const costCenterIsDefined = currentPaymentArea !== "N/A";
+            const clientIsDefined = currentClient !== "N/A";
+            const originIsDefined = currentOrigin !== "N/A"; // CUARTO CRITERIO
+            
+            let errorMsg = "ERROR: Debe seleccionar ";
+            let errorCount = 0;
+            
+            if (!actionIsDefined) { errorMsg += "una ACCIÓN (Re-trabajo O Hospital)"; errorCount++; }
+            if (!costCenterIsDefined) { errorMsg += (errorCount > 0 ? ", " : "") + "el ÁREA A PAGAR"; errorCount++; }
+            if (!clientIsDefined) { errorMsg += (errorCount > 0 ? ", " : "") + "el CLIENTE"; errorCount++; }
+            if (!originIsDefined) { errorMsg += (errorCount > 0 ? ", " : "") + "el ORIGEN."; errorCount++; } // NUEVO
+            
+            if (!actionIsDefined || !costCenterIsDefined || !clientIsDefined || !originIsDefined) {
+                alert(errorMsg);
+                
+                statusArea.textContent = '❌ ENVÍO CANCELADO. Faltan clasificaciones.';
+                statusArea.classList.remove('bg-green-100', 'text-green-700');
+                statusArea.classList.add('bg-red-100', 'text-red-700');
+                return;
+            }
+
+            // Si los CUATRO criterios están definidos
+            const actionType = currentReworkType !== "N/A" ? currentReworkType : currentHospitalType;
+
+            if (confirm(`ADVERTENCIA: ¿Está seguro que desea finalizar el lote (${actionType}) para el cliente ${currentClient} y origen ${currentOrigin}?`)) {
+                 
+                 // Llama a la función de envío con los 5 criterios
+                 sendBatchToSheets(currentReworkType, currentHospitalType, currentPaymentArea, currentClient, currentOrigin, "PENDIENTE", "AUTO"); 
+            }
+        }
+
+
+        // --- FUNCIONES DE LÓGICA / INICIALIZACIÓN ---
 
         function maintainFocus() {
             setTimeout(() => {
                 scannerInput.focus();
                 if (!statusArea.classList.contains('bg-yellow-500') && !statusArea.classList.contains('bg-red-500')) {
                     if (currentModel) {
-                        const actionIsDefined = currentReworkType !== "N/A" || currentHospitalType !== "N/A";
-                        const costCenterIsDefined = currentPaymentArea !== "N/A";
-                        const clientIsDefined = currentClient !== "N/A";
-                        const originIsDefined = currentOrigin !== "N/A";
-                        
-                        if (actionIsDefined && costCenterIsDefined && clientIsDefined && originIsDefined) {
+                        const actionType = currentReworkType !== "N/A" ? currentReworkType : (currentHospitalType !== "N/A" ? currentHospitalType : "N/A");
+                        if (actionType !== "N/A" && currentClient !== "N/A" && currentPaymentArea !== "N/A" && currentOrigin !== "N/A") {
                             statusArea.textContent = `✅ LISTO PARA ENVIAR. Clasificación Completa.`;
                             statusArea.classList.add('bg-green-100', 'text-green-700');
                         } else {
@@ -573,10 +589,11 @@
             currentHospitalType = "N/A"; 
             currentPaymentArea = "N/A"; 
             currentClient = "N/A"; 
-            currentOrigin = "N/A";
+            currentOrigin = "N/A"; // REINICIAR ORIGEN
             currentModelDisplay.textContent = "[Aún no se ha escaneado un Modelo]";
             scannedDataElement.textContent = "[Ninguna]";
             timestampElement.textContent = "Hora de escaneo: N/A";
+            
             updateBatchDisplay();
             maintainFocus();
         }
@@ -585,8 +602,10 @@
             if (index > -1 && index < batchData.length) {
                 const deletedCode = batchData[index].serie;
                 batchData.splice(index, 1); 
+                
                 updateBatchDisplay();
                 maintainFocus();
+                
                 statusArea.textContent = `🗑️ Serie ${deletedCode} eliminada del lote.`;
                 statusArea.classList.remove('bg-green-100', 'text-green-700');
                 statusArea.classList.add('bg-red-100', 'text-red-700');
@@ -594,22 +613,26 @@
         }
         window.deleteSeries = deleteSeries; 
 
+        // Controla el estado de los botones
         function updateBatchDisplay() {
             batchCountElement.textContent = batchData.length;
             
             const isReady = batchData.length > 0 && currentModel !== null;
+            
+            // Cuatro criterios de definición
             const actionIsDefined = currentReworkType !== "N/A" || currentHospitalType !== "N/A";
             const costCenterIsDefined = currentPaymentArea !== "N/A";
             const clientIsDefined = currentClient !== "N/A";
-            const originIsDefined = currentOrigin !== "N/A";
+            const originIsDefined = currentOrigin !== "N/A"; // CUARTO CRITERIO
             
+            // Los botones de clasificación solo se deshabilitan si NO hay datos
             sendBatchButton.disabled = !isReady; 
             hospitalButton.disabled = !isReady; 
             paymentButton.disabled = !isReady; 
             clientButton.disabled = !isReady;
-            originButton.disabled = !isReady;
+            originButton.disabled = !isReady; // NUEVO
             
-            // Requerir los CUATRO criterios
+            // El botón FINALIZAR requiere las CUATRO CLASIFICACIONES
             completeBatchButton.disabled = !isReady || !(actionIsDefined && costCenterIsDefined && clientIsDefined && originIsDefined); 
             
             resetModelButton.disabled = currentModel === null; 
@@ -623,33 +646,70 @@
                 batchData.forEach((item, index) => {
                     const li = document.createElement('li');
                     li.className = 'flex justify-between items-center py-1 border-b border-gray-100';
-                    li.innerHTML = `<span class="font-mono text-gray-800">${item.serie}</span><button class="delete-btn text-red-500 hover:text-red-700 font-bold p-1 rounded-full text-xs" onclick="deleteSeries(${index})" title="Eliminar serie del lote">[X]</button>`;
+                    li.innerHTML = `
+                        <span class="font-mono text-gray-800">${item.serie}</span>
+                        <button 
+                            class="delete-btn text-red-500 hover:text-red-700 font-bold p-1 rounded-full text-xs"
+                            onclick="deleteSeries(${index})"
+                            title="Eliminar serie del lote"
+                        >
+                            [X]
+                        </button>
+                    `;
                     scannedListElement.appendChild(li);
                 });
                 scannedListElement.scrollTop = scannedListElement.scrollHeight;
             }
         }
 
-        // --- FUNCIÓN DE ENVÍO FINAL ---
-
-        async function sendCombinedDataToSheets(payload) {
-            const currentCount = payload.series.length;
+        // FUNCIÓN DE ENVÍO UNIFICADA (Añadida la variable origin)
+        async function sendBatchToSheets(reworkType, hospitalType, paymentArea, client, origin, loteId, operatorId) {
+            if (batchData.length === 0 || !currentModel) return;
             
-            statusArea.textContent = `⏳ ENVIANDO ${currentCount} Series y ${payload.insumos.length} Insumos. Espere...`;
+            const dataToSend = batchData.map(item => ({
+                ...item,
+                modelo: currentModel,
+                rework: reworkType,    
+                hospital: hospitalType,
+                paymentArea: paymentArea, 
+                client: client,
+                origin: origin, // NUEVO CAMPO ORIGEN
+                loteId: loteId,         
+                operator: operatorId 
+            }));
+
+            const currentCount = dataToSend.length;
+            
+            const actionType = reworkType !== "N/A" ? reworkType : hospitalType; 
+            
+            statusArea.textContent = `⏳ FINALIZANDO y Enviando ${currentCount} Series...`;
             statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
             statusArea.classList.add('bg-yellow-500', 'text-white');
-            sendBatchButton.disabled = true; hospitalButton.disabled = true; paymentButton.disabled = true; clientButton.disabled = true; originButton.disabled = true; completeBatchButton.disabled = true;
+            sendBatchButton.disabled = true;
+            hospitalButton.disabled = true;
+            paymentButton.disabled = true; 
+            clientButton.disabled = true;
+            originButton.disabled = true; // DESHABILITAR ORIGEN
+            completeBatchButton.disabled = true;
 
             try {
                 await fetch(SHEETS_WEB_APP_URL, {
-                    method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json', }, body: JSON.stringify(payload) 
+                    method: 'POST',
+                    mode: 'no-cors', 
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ batch: dataToSend }) 
                 });
                 
-                statusArea.textContent = `🎉 ¡Lote de ${currentCount} series y ${payload.insumos.length} insumos FINALIZADO y enviado con éxito!`;
+                statusArea.textContent = `🎉 ¡Lote de ${currentCount} series FINALIZADO y enviado con éxito!`;
                 
-                // Limpiar todo después del envío
-                batchData = []; insumosData = []; currentReworkType = "N/A"; currentHospitalType = "N/A"; currentPaymentArea = "N/A"; currentClient = "N/A"; currentOrigin = "N/A"; currentModel = null;
-                currentModelDisplay.textContent = "[Aún no se ha escaneado un Modelo]";
+                batchData = []; 
+                currentReworkType = "N/A"; 
+                currentHospitalType = "N/A"; 
+                currentPaymentArea = "N/A"; 
+                currentClient = "N/A"; 
+                currentOrigin = "N/A"; // LIMPIAR ORIGEN
                 scannedDataElement.textContent = "[Lote finalizado, listo para el siguiente Modelo]";
                 timestampElement.textContent = `Último envío: ${new Date().toLocaleTimeString()} (${new Date().toLocaleDateString()})`;
                 
@@ -658,164 +718,123 @@
                 statusArea.textContent = '❌ Fallo de conexión al enviar a Sheets.';
                 statusArea.classList.add('bg-red-500', 'text-white');
             } finally {
-                updateBatchDisplay(); 
+                updateBatchDisplay();
                 setTimeout(maintainFocus, 3000); 
             }
         }
 
 
-        // --- LÓGICA DE INSUMOS (Modal 6) ---
+        // Escucha de escaneo principal
+      // *******************************************************************
+// EL CÓDIGO DE ESCUCHA HA SIDO REEMPLAZADO POR UN TEMPORIZADOR
+// *******************************************************************
+let scanTimeout;
+const SCAN_SPEED_DELAY = 50; // 50 milisegundos (ms) de pausa significa que el escaneo terminó.
 
-        function processInsumoScan() {
-            const scannedCode = insumoInput.value.trim();
+function processScannedCode() {
+    const scannedCode = scannerInput.value.trim();
 
-            if (scannedCode) {
-                // Si la cantidad es 1, lo agregamos inmediatamente
-                if (parseInt(cantidadInput.value) === 1) {
-                    addInsumo();
-                } else {
-                    // Si la cantidad es diferente de 1, enfocamos el campo para que el usuario la cambie
-                    cantidadInput.focus();
-                }
-            }
-        }
+    if (scannedCode.length < 3 || currentModel === scannedCode) {
+        // Ignorar códigos muy cortos o si el código es igual al Modelo actual
+        scannerInput.value = '';
+        maintainFocus();
+        return;
+    }
 
-        function activateInsumoScanner() {
-            insumoInput.addEventListener('keyup', function(e) {
-                if (e.key === 'Enter') return; 
-                
-                if (e.key.length === 1 || e.keyCode === 32 || (e.keyCode >= 48 && e.keyCode <= 90)) {
-                    clearTimeout(insumoScanTimeout);
-                    insumoScanTimeout = setTimeout(function() {
-                        if (insumoInput.value.trim().length > 0) {
-                             processInsumoScan();
-                        }
-                    }, INSUMO_SCAN_DELAY);
-                }
-            });
-        }
-
-        function deactivateInsumoScanner() {
-            insumoInput.removeEventListener('keyup', activateInsumoScanner);
-            clearTimeout(insumoScanTimeout);
-        }
-
-        function showInsumosModal() {
-            insumosData = []; 
-            updateInsumosDisplay();
-            insumosModal.classList.remove('hidden');
-            scannerInput.blur();
-            activateInsumoScanner();
-            setTimeout(() => insumoInput.focus(), 100);
-        }
-
-        function hideInsumosModal() {
-            insumosModal.classList.add('hidden');
-            deactivateInsumoScanner();
-            maintainFocus(); 
-        }
-
-        function cancelInsumoCapture() {
-            if (confirm("¿Está seguro de que desea cancelar la captura de insumos? El lote de series no se enviará.")) {
-                hideInsumosModal();
-            }
-        }
+    if (!currentModel) {
+        // **MODO 1: Capturando el MODELO**
+        currentModel = scannedCode;
+        currentModelDisplay.textContent = currentModel;
+        resetModelButton.disabled = false;
         
-        function deleteInsumo(index) {
-            insumosData.splice(index, 1);
-            updateInsumosDisplay();
-            insumoInput.focus();
-        }
-        window.deleteInsumo = deleteInsumo; 
+        statusArea.textContent = `✅ ¡Modelo capturado! Comience a escanear las SERIES.`;
+        statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+        statusArea.classList.add('bg-green-100', 'text-green-700');
+        scannedDataElement.textContent = `Modelo ${currentModel} capturado.`;
+        timestampElement.textContent = `Hora: ${new Date().toLocaleTimeString()}`;
 
-        function addInsumo() {
-            const modeloInsumo = insumoInput.value.trim();
-            const cantidad = parseInt(cantidadInput.value);
-            
-            if (!modeloInsumo) {
-                alert("Por favor, escanee el Modelo del Insumo.");
-                insumoInput.focus();
-                return;
-            }
-            if (isNaN(cantidad) || cantidad <= 0) {
-                alert("La cantidad debe ser un número positivo.");
-                cantidadInput.focus();
-                return;
-            }
-            
-            insumosData.push({ modelo: modeloInsumo, cantidad: cantidad });
-            updateInsumosDisplay();
-            
-            insumoInput.value = '';
-            cantidadInput.value = '1';
-            insumoInput.focus();
-        }
+    } else {
+        // **MODO 2: Capturando las SERIES**
+        
+        const isDuplicate = batchData.some(item => item.serie === scannedCode);
 
-        function updateInsumosDisplay() {
-            insumosScannedList.innerHTML = '';
-            if (insumosData.length === 0) {
-                insumosScannedList.appendChild(emptyInsumoMessage);
-                emptyInsumoMessage.classList.remove('hidden');
+        if (isDuplicate) {
+            statusArea.textContent = `⚠️ DUPLICADO: La serie ${scannedCode} ya fue escaneada en este lote.`;
+            statusArea.classList.remove('bg-green-100', 'text-green-700');
+            statusArea.classList.add('bg-red-100', 'text-red-700');
+            scannedDataElement.textContent = scannedCode; 
+            timestampElement.textContent = `DUPLICADO detectado: ${new Date().toLocaleTimeString()}`;
+            
+        } else {
+            const now = new Date();
+            const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+            
+            scannedDataElement.textContent = scannedCode;
+            timestampElement.textContent = `Hora de escaneo: ${now.toLocaleTimeString()}`;
+
+            batchData.push({
+                serie: scannedCode,
+                longitud: scannedCode.length,
+                timestamp: formattedTime 
+            });
+
+            updateBatchDisplay();
+
+            const actionType = currentReworkType !== "N/A" ? currentReworkType : currentHospitalType;
+            if (actionType !== "N/A" && currentClient !== "N/A" && currentPaymentArea !== "N/A" && currentOrigin !== "N/A") {
+               statusArea.textContent = `✔️ Serie añadida. LISTO PARA ENVIAR.`;
             } else {
-                emptyInsumoMessage.classList.add('hidden');
-                insumosData.forEach((item, index) => {
-                    const li = document.createElement('li');
-                    li.className = 'flex justify-between items-center py-1 border-b border-gray-100';
-                    li.innerHTML = `<span class="font-mono text-gray-800">${item.modelo}</span><span class="text-gray-600">x${item.cantidad}</span><button class="delete-btn text-red-500 hover:text-red-700 font-bold p-1 rounded-full text-xs" onclick="deleteInsumo(${index})" title="Eliminar insumo">[X]</button>`;
-                    insumosScannedList.appendChild(li);
-                });
-                insumosScannedList.scrollTop = insumosScannedList.scrollHeight;
-            }
-        }
-
-        // Función que lanza el envío combinado
-        function finalizeBatchAndSend() {
-            if (insumosData.length === 0) {
-                if (!confirm("ADVERTENCIA: No ha agregado ningún insumo. ¿Desea enviar el lote de series de todos modos?")) {
-                    return;
-                }
+               statusArea.textContent = `✔️ Serie añadida. Aún faltan criterios.`;
             }
             
-            document.getElementById('add-insumo-button').disabled = true;
-            document.getElementById('finish-insumo-button').disabled = true;
-
-            hideInsumosModal();
-            
-            // Prepara el payload
-            const seriesData = batchData.map(item => ({
-                ...item,
-                modelo: currentModel,
-                rework: currentReworkType,    
-                hospital: currentHospitalType,
-                paymentArea: currentPaymentArea, 
-                client: currentClient,
-                origin: currentOrigin,
-                loteId: "PENDIENTE",
-                operator: "AUTO" 
-            }));
-            
-            const payload = {
-                series: seriesData,
-                insumos: insumosData,
-                clasificacion: {
-                    action: currentReworkType !== "N/A" ? currentReworkType : currentHospitalType,
-                    paymentArea: currentPaymentArea,
-                    client: currentClient,
-                    origin: currentOrigin,
-                    modeloPrincipal: currentModel
-                }
-            };
-            
-            sendCombinedDataToSheets(payload); 
+            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+            statusArea.classList.add('bg-green-100', 'text-green-700');
         }
+    }
+    
+    // Lo más importante: Limpiar el campo para el siguiente escaneo
+    scannerInput.value = '';
+    maintainFocus();
+}
 
-        // --- INICIALIZACIÓN ---
-        window.onload = function() {
-            initializeModals();
-            maintainFocus();
-        };
 
-        // --- FIN DE SCRIPT ---
+// ESTA ES LA FUNCIÓN DE ESCUCHA QUE REEMPLAZA EL 'CHANGE'
+scannerInput.addEventListener('keyup', function(e) {
+    // Si el usuario presiona Enter, lo procesamos inmediatamente (aunque el escáner no lo haga)
+    if (e.key === 'Enter') {
+        clearTimeout(scanTimeout);
+        processScannedCode();
+        return;
+    }
+    
+    // Si la tecla presionada es un caracter válido (no Ctrl, Shift, etc.)
+    if (e.key.length === 1 || e.keyCode === 32 || (e.keyCode >= 48 && e.keyCode <= 90)) {
+        // 1. Limpia cualquier temporizador pendiente
+        clearTimeout(scanTimeout);
+
+        // 2. Establece un nuevo temporizador
+        // Si el temporizador expira sin otra pulsación de tecla, significa que el escaneo terminó
+        scanTimeout = setTimeout(function() {
+            if (scannerInput.value.trim().length > 0) {
+                 processScannedCode();
+            }
+        }, SCAN_SPEED_DELAY);
+    }
+});
+
+
+// Mantenemos la llamada a maintainFocus en onload para el inicio
+window.onload = maintainFocus;
+
+        // Eventos de Foco
+        document.body.addEventListener('click', maintainFocus);
+        window.addEventListener('blur', function() {
+            statusArea.textContent = '🔴 Foco perdido. Toca la pantalla para reanudar el escaneo.';
+            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-green-100', 'text-green-700');
+            statusArea.classList.add('bg-red-100', 'text-red-700');
+        });
+        
+        window.onload = maintainFocus;
     </script>
 </body>
 </html>
