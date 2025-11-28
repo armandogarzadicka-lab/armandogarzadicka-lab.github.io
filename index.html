@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner de Modelo y Series por Lotes - Edición</title>
+    <title>Escáner de Modelo y Series por Lotes - Re-trabajo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -12,7 +12,11 @@
             background-color: #e5e7eb;
         }
         .delete-btn {
-            line-height: 1; 
+            line-height: 1;
+        }
+        /* Estilo para la Modal */
+        .modal {
+            background-color: rgba(0, 0, 0, 0.6); /* Fondo semi-transparente */
         }
     </style>
 </head>
@@ -61,7 +65,7 @@
         <button
             id="send-batch-button"
             class="w-full py-4 mb-8 rounded-xl shadow-lg text-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
-            onclick="sendBatchToSheets()"
+            onclick="promptReworkType()"
             disabled
         >
             Enviar Lote de <span id="batch-count">0</span> Series a Sheets
@@ -84,6 +88,28 @@
 
     </div>
 
+    <div id="rework-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+            <h2 class="text-2xl font-bold text-indigo-700 mb-4">
+                Seleccione Tipo de Re-trabajo
+            </h2>
+            <p class="text-gray-600 mb-6">
+                Elija la acción que se realizó en este lote de series.
+            </p>
+
+            <div id="rework-options" class="space-y-3">
+                </div>
+            
+            <div class="mt-6 flex justify-end">
+                <button
+                    onclick="hideReworkModal()"
+                    class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+                >
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
     <script>
         // *******************************************************************
         // 🚀 URL DE TU GOOGLE APPS SCRIPT (YA ESTÁ PUESTA)
@@ -91,7 +117,33 @@
         // *******************************************************************
         
         let batchData = []; 
-        let currentModel = null; 
+        let currentModel = null;
+        
+        // **********************************************
+        // NUEVAS OPCIONES DE RE-TRABAJO SOLICITADAS
+        // **********************************************
+        const reworkModal = document.getElementById('rework-modal');
+        const reworkOptionsContainer = document.getElementById('rework-options');
+        const REWORK_TYPES = [
+            "NOM", 
+            "Artesanal", 
+            "Especial", 
+            "Termoencogible", 
+            "Bolsa / Esquinero", // Se usa / en lugar de \ para evitar problemas de escape en la interfaz
+            "Runners", 
+            "Empaque de cartón", 
+            "Inspeccion"
+        ];
+
+        // Inicializar opciones de la modal al cargar
+        REWORK_TYPES.forEach(type => {
+            const button = document.createElement('button');
+            button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md';
+            button.textContent = type;
+            button.onclick = () => selectReworkType(type);
+            reworkOptionsContainer.appendChild(button);
+        });
+        
         
         const scannerInput = document.getElementById('scanner-input');
         const scannedDataElement = document.getElementById('scanned-data');
@@ -103,6 +155,33 @@
         const emptyMessageElement = document.getElementById('empty-message');
         const currentModelDisplay = document.getElementById('current-model-display');
         const resetModelButton = document.getElementById('reset-model-button');
+
+        // Función para mostrar la modal
+        function showReworkModal() {
+            reworkModal.classList.remove('hidden');
+            scannerInput.blur(); 
+        }
+
+        // Función para ocultar la modal
+        function hideReworkModal() {
+            reworkModal.classList.add('hidden');
+            maintainFocus(); 
+        }
+
+        // Función llamada al seleccionar una opción (SIMPLIFICADA)
+        function selectReworkType(type) {
+            hideReworkModal();
+            // Iniciar el proceso de envío con la opción seleccionada
+            sendBatchToSheets(type);
+        }
+
+        // Función que reemplaza el onclick directo del botón
+        function promptReworkType() {
+             if (batchData.length > 0) {
+                showReworkModal();
+            }
+        }
+
 
         function maintainFocus() {
             setTimeout(() => {
@@ -182,18 +261,18 @@
             }
         }
 
-        async function sendBatchToSheets() {
+        async function sendBatchToSheets(reworkType) {
             if (batchData.length === 0 || !currentModel) return;
             
-            // La URL está bien, no se necesita el chequeo de marcador de posición
-            
+            // Adjuntamos el tipo de re-trabajo a cada registro
             const dataToSend = batchData.map(item => ({
                 ...item,
-                modelo: currentModel
+                modelo: currentModel,
+                rework: reworkType 
             }));
 
             const currentCount = dataToSend.length;
-            statusArea.textContent = `⏳ Enviando ${currentCount} Series de Modelo ${currentModel}...`;
+            statusArea.textContent = `⏳ Enviando ${currentCount} Series de Modelo ${currentModel} (${reworkType})...`;
             statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
             statusArea.classList.add('bg-yellow-500', 'text-white');
             sendBatchButton.disabled = true;
@@ -208,7 +287,7 @@
                     body: JSON.stringify({ batch: dataToSend }) 
                 });
                 
-                statusArea.textContent = `🎉 ¡Lote de ${currentCount} series enviado con éxito!`;
+                statusArea.textContent = `🎉 ¡Lote de ${currentCount} series enviado con éxito! (${reworkType})`;
                 
                 batchData = []; 
                 scannedDataElement.textContent = "[Lote enviado, listo para el siguiente Modelo]";
@@ -248,7 +327,6 @@
                     const isDuplicate = batchData.some(item => item.serie === scannedCode);
 
                     if (isDuplicate) {
-                        // Si es duplicado, mostramos una advertencia y no lo añadimos
                         statusArea.textContent = `⚠️ DUPLICADO: La serie ${scannedCode} ya fue escaneada en este lote.`;
                         statusArea.classList.remove('bg-green-100', 'text-green-700');
                         statusArea.classList.add('bg-red-100', 'text-red-700');
@@ -256,7 +334,6 @@
                         timestampElement.textContent = `DUPLICADO detectado: ${new Date().toLocaleTimeString()}`;
                         
                     } else {
-                        // Si NO es duplicado, se añade normalmente
                         const now = new Date();
                         const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
                         
