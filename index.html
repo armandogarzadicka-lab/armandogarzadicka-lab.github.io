@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner de Modelo y Series por Lotes - Re-trabajo</title>
+    <title>Escáner de Modelo y Series por Lotes - Hospital</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -62,14 +62,25 @@
             </button>
         </div>
 
-        <button
-            id="send-batch-button"
-            class="w-full py-4 mb-8 rounded-xl shadow-lg text-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
-            onclick="promptReworkType()"
-            disabled
-        >
-            Enviar Lote de <span id="batch-count">0</span> Series a Sheets
-        </button>
+        <div class="flex flex-col sm:flex-row gap-4 mb-8">
+            <button
+                id="send-batch-button"
+                class="flex-1 py-4 rounded-xl shadow-lg text-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+                onclick="promptReworkType()"
+                disabled
+            >
+                Enviar Lote de <span id="batch-count">0</span> Series a Sheets
+            </button>
+
+            <button
+                id="hospital-button"
+                class="py-4 px-6 rounded-xl shadow-lg text-lg font-bold text-white bg-red-600 hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                onclick="showHospitalModal()"
+                disabled
+            >
+                🏥 Hospital
+            </button>
+        </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div id="latest-scan-area" class="p-4 bg-gray-100 rounded-xl border border-gray-300">
@@ -110,6 +121,41 @@
             </div>
         </div>
     </div>
+
+    <div id="hospital-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
+            <h2 class="text-2xl font-bold text-red-700 mb-4">
+                Seleccione Ruta de Hospital
+            </h2>
+            <p class="text-gray-600 mb-6">
+                ¿A qué área debe ser dirigida la falla?
+            </p>
+
+            <div class="space-y-4">
+                <button
+                    onclick="selectHospitalType('Hospital Verde')"
+                    class="w-full py-4 px-4 rounded-lg text-lg font-bold text-white bg-green-600 hover:bg-green-700 transition shadow-md"
+                >
+                    🟢 Hospital Verde
+                </button>
+                <button
+                    onclick="selectHospitalType('Hospital Rojo')"
+                    class="w-full py-4 px-4 rounded-lg text-lg font-bold text-white bg-red-600 hover:bg-red-700 transition shadow-md"
+                >
+                    🔴 Hospital Rojo
+                </button>
+            </div>
+            
+            <div class="mt-6 flex justify-end">
+                <button
+                    onclick="hideHospitalModal()"
+                    class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+                >
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
     <script>
         // *******************************************************************
         // 🚀 URL DE TU GOOGLE APPS SCRIPT (YA ESTÁ PUESTA)
@@ -119,21 +165,28 @@
         let batchData = []; 
         let currentModel = null;
         
-        // **********************************************
-        // NUEVAS OPCIONES DE RE-TRABAJO SOLICITADAS
-        // **********************************************
-        const reworkModal = document.getElementById('rework-modal');
-        const reworkOptionsContainer = document.getElementById('rework-options');
+        // --- CONSTANTES ---
         const REWORK_TYPES = [
-            "NOM", 
-            "Artesanal", 
-            "Especial", 
-            "Termoencogible", 
-            "Bolsa / Esquinero", // Se usa / en lugar de \ para evitar problemas de escape en la interfaz
-            "Runners", 
-            "Empaque de cartón", 
-            "Inspeccion"
+            "NOM", "Artesanal", "Especial", "Termoencogible", "Bolsa / Esquinero", "Runners", "Empaque de cartón", "Inspeccion"
         ];
+        
+        // --- ELEMENTOS HTML ---
+        const scannerInput = document.getElementById('scanner-input');
+        const statusArea = document.getElementById('status-area');
+        const sendBatchButton = document.getElementById('send-batch-button');
+        const hospitalButton = document.getElementById('hospital-button'); // NUEVO
+        const reworkModal = document.getElementById('rework-modal');
+        const hospitalModal = document.getElementById('hospital-modal'); // NUEVO
+        const reworkOptionsContainer = document.getElementById('rework-options');
+
+        // ... (otras variables de elementos) ...
+        const scannedDataElement = document.getElementById('scanned-data');
+        const timestampElement = document.getElementById('timestamp');
+        const batchCountElement = document.getElementById('batch-count');
+        const scannedListElement = document.getElementById('scanned-list');
+        const emptyMessageElement = document.getElementById('empty-message');
+        const currentModelDisplay = document.getElementById('current-model-display');
+        const resetModelButton = document.getElementById('reset-model-button');
 
         // Inicializar opciones de la modal al cargar
         REWORK_TYPES.forEach(type => {
@@ -144,38 +197,45 @@
             reworkOptionsContainer.appendChild(button);
         });
         
-        
-        const scannerInput = document.getElementById('scanner-input');
-        const scannedDataElement = document.getElementById('scanned-data');
-        const timestampElement = document.getElementById('timestamp');
-        const statusArea = document.getElementById('status-area');
-        const sendBatchButton = document.getElementById('send-batch-button');
-        const batchCountElement = document.getElementById('batch-count');
-        const scannedListElement = document.getElementById('scanned-list');
-        const emptyMessageElement = document.getElementById('empty-message');
-        const currentModelDisplay = document.getElementById('current-model-display');
-        const resetModelButton = document.getElementById('reset-model-button');
+        // --- FUNCIONES DE MODAL ---
 
-        // Función para mostrar la modal
         function showReworkModal() {
             reworkModal.classList.remove('hidden');
             scannerInput.blur(); 
         }
 
-        // Función para ocultar la modal
         function hideReworkModal() {
             reworkModal.classList.add('hidden');
             maintainFocus(); 
         }
 
-        // Función llamada al seleccionar una opción (SIMPLIFICADA)
-        function selectReworkType(type) {
-            hideReworkModal();
-            // Iniciar el proceso de envío con la opción seleccionada
-            sendBatchToSheets(type);
+        function showHospitalModal() { // NUEVA FUNCIÓN
+            if (batchData.length > 0) {
+                 hospitalModal.classList.remove('hidden');
+                 scannerInput.blur(); 
+            }
+        }
+        
+        function hideHospitalModal() { // NUEVA FUNCIÓN
+            hospitalModal.classList.add('hidden');
+            maintainFocus(); 
         }
 
-        // Función que reemplaza el onclick directo del botón
+        // Función llamada al seleccionar Re-trabajo
+        function selectReworkType(type) {
+            hideReworkModal();
+            // Llama a la función de envío con el tipo de re-trabajo
+            sendBatchToSheets(type, "N/A"); // Se asume N/A para Hospital
+        }
+
+        // Función llamada al seleccionar Hospital
+        function selectHospitalType(type) { // NUEVA FUNCIÓN
+            hideHospitalModal();
+            // Llama a la función de envío con el tipo de hospital
+            sendBatchToSheets("N/A", type); // Se asume N/A para Re-trabajo
+        }
+
+        // Función que reemplaza el onclick directo del botón Enviar Lote
         function promptReworkType() {
              if (batchData.length > 0) {
                 showReworkModal();
@@ -183,9 +243,12 @@
         }
 
 
+        // --- FUNCIONES DE LÓGICA ---
+
         function maintainFocus() {
             setTimeout(() => {
                 scannerInput.focus();
+                // Omitir cambios de estado si estamos en un estado de envío o error (red-500/yellow-500)
                 if (!statusArea.classList.contains('bg-yellow-500') && !statusArea.classList.contains('bg-red-500')) {
                     if (currentModel) {
                         statusArea.textContent = `✅ Listo para escanear SERIES. Modelo: ${currentModel}`;
@@ -233,7 +296,10 @@
 
         function updateBatchDisplay() {
             batchCountElement.textContent = batchData.length;
-            sendBatchButton.disabled = batchData.length === 0 || currentModel === null;
+            
+            const isReady = batchData.length > 0 && currentModel !== null;
+            sendBatchButton.disabled = !isReady;
+            hospitalButton.disabled = !isReady; // HABILITAR HOSPITAL SI HAY DATOS
             resetModelButton.disabled = currentModel === null; 
 
             scannedListElement.innerHTML = '';
@@ -261,21 +327,28 @@
             }
         }
 
-        async function sendBatchToSheets(reworkType) {
+        // *******************************************************************
+        // FUNCIÓN DE ENVÍO UNIFICADA
+        // *******************************************************************
+        async function sendBatchToSheets(reworkType, hospitalType) {
             if (batchData.length === 0 || !currentModel) return;
             
-            // Adjuntamos el tipo de re-trabajo a cada registro
+            // Adjuntamos el tipo de re-trabajo Y hospital a CADA registro
             const dataToSend = batchData.map(item => ({
                 ...item,
                 modelo: currentModel,
-                rework: reworkType 
+                rework: reworkType, // Tipo de Re-trabajo (NOM, Artesanal, N/A)
+                hospital: hospitalType // Tipo de Hospital (Rojo, Verde, N/A)
             }));
 
             const currentCount = dataToSend.length;
-            statusArea.textContent = `⏳ Enviando ${currentCount} Series de Modelo ${currentModel} (${reworkType})...`;
+            const actionType = reworkType !== "N/A" ? reworkType : hospitalType;
+
+            statusArea.textContent = `⏳ Enviando ${currentCount} Series (${actionType})...`;
             statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
             statusArea.classList.add('bg-yellow-500', 'text-white');
             sendBatchButton.disabled = true;
+            hospitalButton.disabled = true;
 
             try {
                 await fetch(SHEETS_WEB_APP_URL, {
@@ -287,7 +360,7 @@
                     body: JSON.stringify({ batch: dataToSend }) 
                 });
                 
-                statusArea.textContent = `🎉 ¡Lote de ${currentCount} series enviado con éxito! (${reworkType})`;
+                statusArea.textContent = `🎉 ¡Lote enviado con éxito! (${actionType})`;
                 
                 batchData = []; 
                 scannedDataElement.textContent = "[Lote enviado, listo para el siguiente Modelo]";
@@ -295,7 +368,7 @@
                 
             } catch (error) {
                 console.error('Error al enviar a Google Sheets:', error);
-                statusArea.textContent = '❌ Fallo de conexión o script al enviar a Sheets.';
+                statusArea.textContent = '❌ Fallo de conexión al enviar a Sheets.';
                 statusArea.classList.add('bg-red-500', 'text-white');
             } finally {
                 updateBatchDisplay();
@@ -310,7 +383,6 @@
 
             if (scannedCode) {
                 if (!currentModel) {
-                    // MODO 1: Capturando el MODELO
                     currentModel = scannedCode;
                     currentModelDisplay.textContent = currentModel;
                     resetModelButton.disabled = false;
@@ -322,8 +394,6 @@
                     timestampElement.textContent = `Hora: ${new Date().toLocaleTimeString()}`;
 
                 } else {
-                    // MODO 2: Capturando las SERIES
-                    
                     const isDuplicate = batchData.some(item => item.serie === scannedCode);
 
                     if (isDuplicate) {
