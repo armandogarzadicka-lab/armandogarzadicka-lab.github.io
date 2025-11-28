@@ -62,7 +62,7 @@
             </button>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
             <button
                 id="send-batch-button"
                 class="py-4 rounded-xl shadow-lg text-xs md:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
@@ -109,16 +109,6 @@
             </button>
         </div>
 
-        <div class="mb-8">
-            <button
-                id="register-insumos-button"
-                class="w-full py-4 rounded-xl shadow-lg text-lg font-bold text-gray-800 bg-gray-200 hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                onclick="showInsumosModal()"
-                disabled
-            >
-                📝 Registrar Insumos Usados (<span id="insumo-count">0</span> tipos)
-            </button>
-        </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div id="latest-scan-area" class="p-4 bg-gray-100 rounded-xl border border-gray-300">
@@ -259,10 +249,10 @@
                 </button>
                  <button
                     id="finish-insumo-button"
-                    onclick="hideInsumosModal()"
+                    onclick="finalizeBatchAndSend()"
                     class="py-3 px-6 rounded-lg text-white font-bold bg-gray-800 hover:bg-gray-900 transition"
                 >
-                    ✅ Cerrar Captura
+                    ✅ Finalizar Lote y Enviar
                 </button>
             </div>
 
@@ -270,7 +260,7 @@
                 onclick="cancelInsumoCapture()"
                 class="mt-4 w-full py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition"
             >
-                Cancelar y Descartar Cambios
+                Cancelar y Volver al Escaneo
             </button>
         </div>
     </div>
@@ -313,7 +303,6 @@
         const paymentButton = document.getElementById('payment-button');
         const clientButton = document.getElementById('client-button');
         const originButton = document.getElementById('origin-button');
-        const registerInsumosButton = document.getElementById('register-insumos-button'); // NUEVO BOTÓN
         const completeBatchButton = document.getElementById('complete-batch-button'); 
         
         const reworkModal = document.getElementById('rework-modal');
@@ -321,29 +310,30 @@
         const paymentModal = document.getElementById('payment-modal'); 
         const clientModal = document.getElementById('client-modal');
         const originModal = document.getElementById('origin-modal');
-        const insumosModal = document.getElementById('insumos-modal'); // NUEVA MODAL
-
-        // Elementos de Modales y Insumos
+        const insumosModal = document.getElementById('insumos-modal'); // NUEVO
+        
         const reworkOptionsContainer = document.getElementById('rework-options');
         const paymentOptionsContainer = document.getElementById('payment-options'); 
         const originOptionsContainer = document.getElementById('origin-options');
         const clientSelect = document.getElementById('client-select');
 
+        // Variables de Insumos
         const insumoInput = document.getElementById('insumo-input');
         const cantidadInput = document.getElementById('cantidad-input');
         const insumosScannedList = document.getElementById('insumos-scanned-list');
         const emptyInsumoMessage = document.getElementById('empty-insumo-message');
-        
         let insumoScanTimeout; 
         const INSUMO_SCAN_DELAY = 50; 
+        
+        // Variables de escaneo principal
         let scanTimeout;
         const MAIN_SCAN_DELAY = 50;
+
 
         // Variables de display
         const scannedDataElement = document.getElementById('scanned-data');
         const timestampElement = document.getElementById('timestamp');
         const batchCountElement = document.getElementById('batch-count');
-        const insumoCountElement = document.getElementById('insumo-count'); // NUEVO CONTADOR
         const scannedListElement = document.getElementById('scanned-list');
         const emptyMessageElement = document.getElementById('empty-message');
         const currentModelDisplay = document.getElementById('current-model-display');
@@ -351,16 +341,50 @@
 
         // --- INICIALIZACIÓN DE MODALES Y LISTENERS ---
 
+        // Función de inicialización de Modales
         function initializeModals() {
-            REWORK_TYPES.forEach(type => { const button = document.createElement('button'); button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md'; button.textContent = type; button.onclick = () => selectReworkType(type); reworkOptionsContainer.appendChild(button); });
-            PAYMENT_AREAS.forEach(type => { const button = document.createElement('button'); button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 transition shadow-md'; button.textContent = type; button.onclick = () => selectPaymentArea(type); paymentOptionsContainer.appendChild(button); });
-            ORIGIN_OPTIONS.forEach(type => { const button = document.createElement('button'); const backgroundColor = type === 'Rechazo' || type === 'Devolucion' ? 'bg-pink-600' : 'bg-blue-600'; button.className = `w-full py-3 px-4 rounded-lg text-sm font-semibold text-white ${backgroundColor} hover:${backgroundColor.replace('600', '700')} transition shadow-md`; button.textContent = type; button.onclick = () => selectOrigin(type); originOptionsContainer.appendChild(button); });
+            // Re-trabajo
+            REWORK_TYPES.forEach(type => {
+                const button = document.createElement('button');
+                button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md';
+                button.textContent = type;
+                button.onclick = () => selectReworkType(type);
+                reworkOptionsContainer.appendChild(button);
+            });
+            
+            // Área a Pagar
+            PAYMENT_AREAS.forEach(type => {
+                const button = document.createElement('button');
+                button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 transition shadow-md';
+                button.textContent = type;
+                button.onclick = () => selectPaymentArea(type);
+                paymentOptionsContainer.appendChild(button);
+            });
+            
+            // Origen
+            ORIGIN_OPTIONS.forEach(type => {
+                const button = document.createElement('button');
+                const backgroundColor = type === 'Rechazo' || type === 'Devolucion' ? 'bg-pink-600' : 'bg-blue-600';
+                button.className = `w-full py-3 px-4 rounded-lg text-sm font-semibold text-white ${backgroundColor} hover:${backgroundColor.replace('600', '700')} transition shadow-md`;
+                button.textContent = type;
+                button.onclick = () => selectOrigin(type);
+                originOptionsContainer.appendChild(button);
+            });
 
-            const initialOption = document.createElement('option'); initialOption.value = ""; initialOption.textContent = "--- Seleccione el Cliente ---"; clientSelect.appendChild(initialOption);
-            CLIENTS.forEach(client => { const option = document.createElement('option'); option.value = client; option.textContent = client; clientSelect.appendChild(option); });
+            // Cliente
+            const initialOption = document.createElement('option');
+            initialOption.value = "";
+            initialOption.textContent = "--- Seleccione el Cliente ---";
+            clientSelect.appendChild(initialOption);
+            CLIENTS.forEach(client => {
+                const option = document.createElement('option');
+                option.value = client;
+                option.textContent = client;
+                clientSelect.appendChild(option);
+            });
         }
         
-        // --- FUNCIONES DE MODAL Y CLASIFICACIÓN (No alteradas en lógica) ---
+        // --- FUNCIONES DE MODAL ---
 
         function showReworkModal() { reworkModal.classList.remove('hidden'); scannerInput.blur(); }
         function hideReworkModal() { reworkModal.classList.add('hidden'); maintainFocus(); }
@@ -378,199 +402,237 @@
         function promptOrigin() { if (batchData.length > 0) { showOriginModal(); }}
 
 
-        function selectReworkType(type) { hideReworkModal(); currentReworkType = type; currentHospitalType = "N/A"; updateBatchDisplay(); statusArea.textContent = `✅ Acción: ${type}. Presione "LOTE TERMINADO" para enviar.`; statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700'); }
-        function selectHospitalType(type) { hideHospitalModal(); currentHospitalType = type; currentReworkType = "N/A"; updateBatchDisplay(); statusArea.textContent = `✅ Acción: ${type}. Presione "LOTE TERMINADO" para enviar.`; statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700'); }
-        function selectPaymentArea(type) { hidePaymentModal(); currentPaymentArea = type; updateBatchDisplay(); statusArea.textContent = `✅ Costo: ${type}. Presione "LOTE TERMINADO" para enviar.`; statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700'); }
-        function selectClient() { const selectedClient = clientSelect.value; if (!selectedClient) { alert("Por favor, seleccione un Cliente."); return; } hideClientModal(); currentClient = selectedClient; updateBatchDisplay(); statusArea.textContent = `✅ Cliente: ${selectedClient}. Presione "LOTE TERMINADO" para enviar.`; statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700'); }
-        function selectOrigin(type) { hideOriginModal(); currentOrigin = type; updateBatchDisplay(); statusArea.textContent = `✅ Origen: ${type}. Presione "LOTE TERMINADO" para enviar.`; statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700'); }
-
-
-        // --- LÓGICA DEL ESCÁNER PRINCIPAL ---
+        // --- LÓGICA DEL ESCÁNER PRINCIPAL (MODIFICADA A keyup) ---
 
         function processScannedCode() {
             const scannedCode = scannerInput.value.trim();
-            if (scannedCode.length < 3) { scannerInput.value = ''; maintainFocus(); return; }
+            if (scannedCode.length < 3) {
+                 scannerInput.value = '';
+                 maintainFocus();
+                 return;
+            }
 
             if (!currentModel) {
-                currentModel = scannedCode; currentModelDisplay.textContent = currentModel; resetModelButton.disabled = false;
+                currentModel = scannedCode;
+                currentModelDisplay.textContent = currentModel;
+                resetModelButton.disabled = false;
                 statusArea.textContent = `✅ ¡Modelo capturado! Comience a escanear las SERIES.`;
-                statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700');
+                statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+                statusArea.classList.add('bg-green-100', 'text-green-700');
                 scannedDataElement.textContent = `Modelo ${currentModel} capturado.`;
                 timestampElement.textContent = `Hora: ${new Date().toLocaleTimeString()}`;
+
             } else {
                 const isDuplicate = batchData.some(item => item.serie === scannedCode);
+
                 if (isDuplicate) {
                     statusArea.textContent = `⚠️ DUPLICADO: La serie ${scannedCode} ya fue escaneada en este lote.`;
-                    statusArea.classList.remove('bg-green-100', 'text-green-700'); statusArea.classList.add('bg-red-100', 'text-red-700');
-                    scannedDataElement.textContent = scannedCode; timestampElement.textContent = `DUPLICADO detectado: ${new Date().toLocaleTimeString()}`;
+                    statusArea.classList.remove('bg-green-100', 'text-green-700');
+                    statusArea.classList.add('bg-red-100', 'text-red-700');
+                    scannedDataElement.textContent = scannedCode; 
+                    timestampElement.textContent = `DUPLICADO detectado: ${new Date().toLocaleTimeString()}`;
+                    
                 } else {
                     const now = new Date();
                     const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
-                    scannedDataElement.textContent = scannedCode; timestampElement.textContent = `Hora de escaneo: ${now.toLocaleTimeString()}`;
-                    batchData.push({ serie: scannedCode, longitud: scannedCode.length, timestamp: formattedTime });
+                    
+                    scannedDataElement.textContent = scannedCode;
+                    timestampElement.textContent = `Hora de escaneo: ${now.toLocaleTimeString()}`;
+
+                    batchData.push({
+                        serie: scannedCode,
+                        longitud: scannedCode.length,
+                        timestamp: formattedTime 
+                    });
+
                     updateBatchDisplay();
+
                     const actionType = currentReworkType !== "N/A" ? currentReworkType : (currentHospitalType !== "N/A" ? currentHospitalType : "N/A");
                     if (actionType !== "N/A" && currentClient !== "N/A" && currentPaymentArea !== "N/A" && currentOrigin !== "N/A") {
                        statusArea.textContent = `✔️ Serie añadida. LISTO PARA ENVIAR.`;
                     } else {
                        statusArea.textContent = `✔️ Serie añadida. Aún faltan criterios.`;
                     }
-                    statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700');
+                    
+                    statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+                    statusArea.classList.add('bg-green-100', 'text-green-700');
                 }
             }
-            scannerInput.value = ''; maintainFocus();
+
+            scannerInput.value = '';
+            maintainFocus();
         }
 
         scannerInput.addEventListener('keyup', function(e) {
-            if (e.key === 'Enter') { clearTimeout(scanTimeout); processScannedCode(); return; }
+            if (e.key === 'Enter') {
+                clearTimeout(scanTimeout);
+                processScannedCode();
+                return;
+            }
+            
             if (e.key.length === 1 || e.keyCode === 32 || (e.keyCode >= 48 && e.keyCode <= 90)) {
                 clearTimeout(scanTimeout);
                 scanTimeout = setTimeout(function() {
-                    if (scannerInput.value.trim().length > 0) { processScannedCode(); }
+                    if (scannerInput.value.trim().length > 0) {
+                         processScannedCode();
+                    }
                 }, MAIN_SCAN_DELAY);
             }
         });
 
-        // --- FUNCIÓN DE ENVÍO FINAL (MODIFICADA PARA ENVIAR AL INSTANTE) ---
+        // --- FUNCIONES DE SELECCIÓN DE CLASIFICACIÓN (MÁS LIMPIEZA CRUZADA) ---
 
-        // Función que lanza el envío combinado
-        function completeBatch() {
-            if (batchData.length === 0 || !currentModel) return;
+        function selectReworkType(type) {
+            hideReworkModal();
+            currentReworkType = type; 
+            currentHospitalType = "N/A"; // MUTUAMENTE EXCLUYENTE con Hospital
+            updateBatchDisplay();
+            statusArea.textContent = `✅ Acción: ${type}. Presione "LOTE TERMINADO" para enviar.`;
+            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+            statusArea.classList.add('bg-green-100', 'text-green-700');
+        }
+
+        function selectHospitalType(type) { 
+            hideHospitalModal();
+            currentHospitalType = type; 
+            currentReworkType = "N/A"; // MUTUAMENTE EXCLUYENTE con Re-trabajo
+            updateBatchDisplay();
+            statusArea.textContent = `✅ Acción: ${type}. Presione "LOTE TERMINADO" para enviar.`;
+            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+            statusArea.classList.add('bg-green-100', 'text-green-700');
+        }
+        
+        function selectPaymentArea(type) { 
+            hidePaymentModal();
+            currentPaymentArea = type; 
+            updateBatchDisplay();
+            statusArea.textContent = `✅ Costo: ${type}. Presione "LOTE TERMINADO" para enviar.`;
+            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+            statusArea.classList.add('bg-green-100', 'text-green-700');
+        }
+        
+        function selectClient() {
+            const selectedClient = clientSelect.value;
+            if (!selectedClient) { alert("Por favor, seleccione un Cliente."); return; }
+            hideClientModal();
+            currentClient = selectedClient; 
+            updateBatchDisplay();
+            statusArea.textContent = `✅ Cliente: ${selectedClient}. Presione "LOTE TERMINADO" para enviar.`;
+            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+            statusArea.classList.add('bg-green-100', 'text-green-700');
+        }
+        
+        function selectOrigin(type) { 
+            hideOriginModal();
+            currentOrigin = type; 
+            updateBatchDisplay();
+            statusArea.textContent = `✅ Origen: ${type}. Presione "LOTE TERMINADO" para enviar.`;
+            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+            statusArea.classList.add('bg-green-100', 'text-green-700');
+        }
+
+
+        // --- FUNCIONES DE LÓGICA PRINCIPAL ---
+
+        function maintainFocus() {
+            setTimeout(() => {
+                scannerInput.focus();
+                if (!statusArea.classList.contains('bg-yellow-500') && !statusArea.classList.contains('bg-red-500')) {
+                    if (currentModel) {
+                        const actionIsDefined = currentReworkType !== "N/A" || currentHospitalType !== "N/A";
+                        const costCenterIsDefined = currentPaymentArea !== "N/A";
+                        const clientIsDefined = currentClient !== "N/A";
+                        const originIsDefined = currentOrigin !== "N/A";
+                        
+                        if (actionIsDefined && costCenterIsDefined && clientIsDefined && originIsDefined) {
+                            statusArea.textContent = `✅ LISTO PARA ENVIAR. Clasificación Completa.`;
+                            statusArea.classList.add('bg-green-100', 'text-green-700');
+                        } else {
+                            statusArea.textContent = `✅ Listo para escanear SERIES. Modelo: ${currentModel}. (Aún faltan criterios)`;
+                            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+                            statusArea.classList.add('bg-green-100', 'text-green-700');
+                        }
+                    } else {
+                        statusArea.textContent = '🟡 ESCANEE PRIMERO EL CÓDIGO DEL MODELO.';
+                        statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-red-100', 'text-red-700');
+                        statusArea.classList.add('bg-yellow-100', 'text-yellow-700');
+                    }
+                }
+            }, 50);
+        }
+
+        function resetModel() {
+            if (batchData.length > 0) {
+                if (!confirm("ADVERTENCIA: ¿Desea reiniciar el Modelo y descartar las series escaneadas actualmente?")) {
+                    return;
+                }
+            }
+            currentModel = null;
+            batchData = []; 
+            currentReworkType = "N/A"; 
+            currentHospitalType = "N/A"; 
+            currentPaymentArea = "N/A"; 
+            currentClient = "N/A"; 
+            currentOrigin = "N/A";
+            currentModelDisplay.textContent = "[Aún no se ha escaneado un Modelo]";
+            scannedDataElement.textContent = "[Ninguna]";
+            timestampElement.textContent = "Hora de escaneo: N/A";
+            updateBatchDisplay();
+            maintainFocus();
+        }
+        
+        function deleteSeries(index) {
+            if (index > -1 && index < batchData.length) {
+                const deletedCode = batchData[index].serie;
+                batchData.splice(index, 1); 
+                updateBatchDisplay();
+                maintainFocus();
+                statusArea.textContent = `🗑️ Serie ${deletedCode} eliminada del lote.`;
+                statusArea.classList.remove('bg-green-100', 'text-green-700');
+                statusArea.classList.add('bg-red-100', 'text-red-700');
+            }
+        }
+        window.deleteSeries = deleteSeries; 
+
+        function updateBatchDisplay() {
+            batchCountElement.textContent = batchData.length;
             
+            const isReady = batchData.length > 0 && currentModel !== null;
             const actionIsDefined = currentReworkType !== "N/A" || currentHospitalType !== "N/A";
             const costCenterIsDefined = currentPaymentArea !== "N/A";
             const clientIsDefined = currentClient !== "N/A";
-            const originIsDefined = currentOrigin !== "N/A"; 
+            const originIsDefined = currentOrigin !== "N/A";
             
-            if (!actionIsDefined || !costCenterIsDefined || !clientIsDefined || !originIsDefined) {
-                alert("ERROR: Faltan clasificaciones obligatorias. Por favor, revise todos los botones.");
-                statusArea.textContent = '❌ ENVÍO CANCELADO. Faltan clasificaciones.';
-                statusArea.classList.remove('bg-green-100', 'text-green-700'); statusArea.classList.add('bg-red-100', 'text-red-700');
-                return;
-            }
-
-            const actionType = currentReworkType !== "N/A" ? currentReworkType : currentHospitalType;
-
-            if (confirm(`ADVERTENCIA: ¿Está seguro que desea finalizar el lote (${actionType}) y enviar?`)) {
-                // Prepara el payload para el envío
-                const seriesData = batchData.map(item => ({
-                    ...item, modelo: currentModel, rework: currentReworkType, hospital: currentHospitalType, paymentArea: currentPaymentArea, client: currentClient, origin: currentOrigin, loteId: "PENDIENTE", operator: "AUTO" 
-                }));
-                
-                const payload = {
-                    series: seriesData,
-                    insumos: insumosData, // Envía la lista de insumos capturada
-                    clasificacion: {
-                        action: actionType, paymentArea: currentPaymentArea, client: currentClient, origin: currentOrigin, modeloPrincipal: currentModel
-                    }
-                };
-                
-                sendCombinedDataToSheets(payload); 
-            }
-        }
-
-
-        // --- LÓGICA DE INSUMOS (Modal 6) ---
-
-        function processInsumoScan() {
-            const scannedCode = insumoInput.value.trim();
-            if (scannedCode) {
-                if (parseInt(cantidadInput.value) === 1) { addInsumo(); } 
-                else { cantidadInput.focus(); }
-            }
-        }
-
-        function activateInsumoScanner() {
-            insumoInput.addEventListener('keyup', function(e) {
-                if (e.key === 'Enter') return; 
-                if (e.key.length === 1 || e.keyCode === 32 || (e.keyCode >= 48 && e.keyCode <= 90)) {
-                    clearTimeout(insumoScanTimeout);
-                    insumoScanTimeout = setTimeout(function() {
-                        if (insumoInput.value.trim().length > 0) { processInsumoScan(); }
-                    }, INSUMO_SCAN_DELAY);
-                }
-            });
-        }
-
-        function deactivateInsumoScanner() {
-            const newElement = insumoInput.cloneNode(true);
-            insumoInput.parentNode.replaceChild(newElement, insumoInput);
-            newElement.addEventListener('keyup', function(){}); // Reemplazar con listener vacío para evitar fugas
+            sendBatchButton.disabled = !isReady; 
+            hospitalButton.disabled = !isReady; 
+            paymentButton.disabled = !isReady; 
+            clientButton.disabled = !isReady;
+            originButton.disabled = !isReady;
             
-            // Reasignar la variable global al nuevo elemento para futuras referencias
-            Object.assign(window, {insumoInput: newElement});
-            clearTimeout(insumoScanTimeout);
-        }
-
-        function showInsumosModal() {
-            // Ya no limpiamos los datos, solo los mostramos
-            updateInsumosDisplay(); 
-            insumosModal.classList.remove('hidden');
-            scannerInput.blur();
-            // Asegurarse de que el foco vaya al campo de insumo, no al scanner principal
-            setTimeout(() => insumoInput.focus(), 100);
-            activateInsumoScanner();
-        }
-
-        function hideInsumosModal() {
-            insumosModal.classList.add('hidden');
-            deactivateInsumoScanner();
-            updateBatchDisplay(); // Actualiza el contador de insumos en el botón principal
-            maintainFocus(); 
-        }
-        
-        function cancelInsumoCapture() {
-            // Revertir los datos a un estado guardado si es necesario, 
-            // pero por simplicidad aquí solo cerramos
-            if (confirm("¿Desea cerrar la captura y mantener los insumos registrados?")) {
-                 hideInsumosModal();
-            }
-        }
-        
-        function deleteInsumo(index) {
-            insumosData.splice(index, 1);
-            updateInsumosDisplay();
-            insumoInput.focus();
-        }
-        window.deleteInsumo = deleteInsumo; 
-
-        function addInsumo() {
-            const modeloInsumo = insumoInput.value.trim();
-            const cantidad = parseInt(cantidadInput.value);
+            // Requerir los CUATRO criterios
+            completeBatchButton.disabled = !isReady || !(actionIsDefined && costCenterIsDefined && clientIsDefined && originIsDefined); 
             
-            if (!modeloInsumo) { alert("Escanee el Modelo del Insumo."); insumoInput.focus(); return; }
-            if (isNaN(cantidad) || cantidad <= 0) { alert("La cantidad debe ser un número positivo."); cantidadInput.focus(); return; }
-            
-            insumosData.push({ modelo: modeloInsumo, cantidad: cantidad });
-            updateInsumosDisplay();
-            
-            insumoInput.value = '';
-            cantidadInput.value = '1';
-            insumoInput.focus();
-        }
+            resetModelButton.disabled = currentModel === null; 
 
-        function updateInsumosDisplay() {
-            insumoCountElement.textContent = insumosData.length; // Actualiza el contador en el botón
-            insumosScannedList.innerHTML = '';
-            if (insumosData.length === 0) {
-                insumosScannedList.appendChild(emptyInsumoMessage);
-                emptyInsumoMessage.classList.remove('hidden');
+            scannedListElement.innerHTML = '';
+            if (batchData.length === 0) {
+                scannedListElement.appendChild(emptyMessageElement);
+                emptyMessageElement.classList.remove('hidden');
             } else {
-                emptyInsumoMessage.classList.add('hidden');
-                insumosData.forEach((item, index) => {
+                emptyMessageElement.classList.add('hidden');
+                batchData.forEach((item, index) => {
                     const li = document.createElement('li');
                     li.className = 'flex justify-between items-center py-1 border-b border-gray-100';
-                    li.innerHTML = `<span class="font-mono text-gray-800">${item.modelo}</span><span class="text-gray-600">x${item.cantidad}</span><button class="delete-btn text-red-500 hover:text-red-700 font-bold p-1 rounded-full text-xs" onclick="deleteInsumo(${index})" title="Eliminar insumo">[X]</button>`;
-                    insumosScannedList.appendChild(li);
+                    li.innerHTML = `<span class="font-mono text-gray-800">${item.serie}</span><button class="delete-btn text-red-500 hover:text-red-700 font-bold p-1 rounded-full text-xs" onclick="deleteSeries(${index})" title="Eliminar serie del lote">[X]</button>`;
+                    scannedListElement.appendChild(li);
                 });
-                insumosScannedList.scrollTop = insumosScannedList.scrollHeight;
+                scannedListElement.scrollTop = scannedListElement.scrollHeight;
             }
         }
 
         // --- FUNCIÓN DE ENVÍO FINAL ---
 
         async function sendCombinedDataToSheets(payload) {
-            // ... (Lógica de envío, la misma que en la versión final anterior) ...
             const currentCount = payload.series.length;
             
             statusArea.textContent = `⏳ ENVIANDO ${currentCount} Series y ${payload.insumos.length} Insumos. Espere...`;
@@ -602,49 +664,152 @@
         }
 
 
-        // --- LÓGICA GENERAL ---
+        // --- LÓGICA DE INSUMOS (Modal 6) ---
 
-        function maintainFocus() {
-            // ... (Función de foco existente) ...
-            setTimeout(() => {
-                scannerInput.focus();
-                if (!statusArea.classList.contains('bg-yellow-500') && !statusArea.classList.contains('bg-red-500')) {
-                    if (currentModel) {
-                        const actionIsDefined = currentReworkType !== "N/A" || currentHospitalType !== "N/A";
-                        const costCenterIsDefined = currentPaymentArea !== "N/A";
-                        const clientIsDefined = currentClient !== "N/A";
-                        const originIsDefined = currentOrigin !== "N/A";
-                        
-                        if (actionIsDefined && costCenterIsDefined && clientIsDefined && originIsDefined) {
-                            statusArea.textContent = `✅ LISTO PARA ENVIAR. Clasificación Completa.`;
-                            statusArea.classList.add('bg-green-100', 'text-green-700');
-                        } else {
-                            statusArea.textContent = `✅ Listo para escanear SERIES. Modelo: ${currentModel}. (Aún faltan criterios)`;
-                            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
-                            statusArea.classList.add('bg-green-100', 'text-green-700');
-                        }
-                    } else {
-                        statusArea.textContent = '🟡 ESCANEE PRIMERO EL CÓDIGO DEL MODELO.';
-                        statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-red-100', 'text-red-700');
-                        statusArea.classList.add('bg-yellow-100', 'text-yellow-700');
-                    }
+        function processInsumoScan() {
+            const scannedCode = insumoInput.value.trim();
+
+            if (scannedCode) {
+                // Si la cantidad es 1, lo agregamos inmediatamente
+                if (parseInt(cantidadInput.value) === 1) {
+                    addInsumo();
+                } else {
+                    // Si la cantidad es diferente de 1, enfocamos el campo para que el usuario la cambie
+                    cantidadInput.focus();
                 }
-            }, 50);
+            }
         }
 
-        function resetModel() {
-            if (batchData.length > 0) { if (!confirm("ADVERTENCIA: ¿Desea reiniciar el Modelo y descartar las series escaneadas actualmente?")) { return; } }
-            currentModel = null; batchData = []; insumosData = []; currentReworkType = "N/A"; currentHospitalType = "N/A"; currentPaymentArea = "N/A"; currentClient = "N/A"; currentOrigin = "N/A";
-            currentModelDisplay.textContent = "[Aún no se ha escaneado un Modelo]"; scannedDataElement.textContent = "[Ninguna]"; timestampElement.textContent = "Hora de escaneo: N/A";
-            updateBatchDisplay(); maintainFocus();
+        function activateInsumoScanner() {
+            insumoInput.addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') return; 
+                
+                if (e.key.length === 1 || e.keyCode === 32 || (e.keyCode >= 48 && e.keyCode <= 90)) {
+                    clearTimeout(insumoScanTimeout);
+                    insumoScanTimeout = setTimeout(function() {
+                        if (insumoInput.value.trim().length > 0) {
+                             processInsumoScan();
+                        }
+                    }, INSUMO_SCAN_DELAY);
+                }
+            });
+        }
+
+        function deactivateInsumoScanner() {
+            insumoInput.removeEventListener('keyup', activateInsumoScanner);
+            clearTimeout(insumoScanTimeout);
+        }
+
+        function showInsumosModal() {
+            insumosData = []; 
+            updateInsumosDisplay();
+            insumosModal.classList.remove('hidden');
+            scannerInput.blur();
+            activateInsumoScanner();
+            setTimeout(() => insumoInput.focus(), 100);
+        }
+
+        function hideInsumosModal() {
+            insumosModal.classList.add('hidden');
+            deactivateInsumoScanner();
+            maintainFocus(); 
+        }
+
+        function cancelInsumoCapture() {
+            if (confirm("¿Está seguro de que desea cancelar la captura de insumos? El lote de series no se enviará.")) {
+                hideInsumosModal();
+            }
         }
         
-        // El resto de la lógica de escaneo principal y listeners de eventos permanecen sin cambios.
+        function deleteInsumo(index) {
+            insumosData.splice(index, 1);
+            updateInsumosDisplay();
+            insumoInput.focus();
+        }
+        window.deleteInsumo = deleteInsumo; 
 
-        // Eventos de Foco
-        document.body.addEventListener('click', maintainFocus);
-        window.addEventListener('blur', function() { statusArea.textContent = '🔴 Foco perdido. Toca la pantalla para reanudar el escaneo.'; statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-green-100', 'text-green-700'); statusArea.classList.add('bg-red-100', 'text-red-700'); });
-        
+        function addInsumo() {
+            const modeloInsumo = insumoInput.value.trim();
+            const cantidad = parseInt(cantidadInput.value);
+            
+            if (!modeloInsumo) {
+                alert("Por favor, escanee el Modelo del Insumo.");
+                insumoInput.focus();
+                return;
+            }
+            if (isNaN(cantidad) || cantidad <= 0) {
+                alert("La cantidad debe ser un número positivo.");
+                cantidadInput.focus();
+                return;
+            }
+            
+            insumosData.push({ modelo: modeloInsumo, cantidad: cantidad });
+            updateInsumosDisplay();
+            
+            insumoInput.value = '';
+            cantidadInput.value = '1';
+            insumoInput.focus();
+        }
+
+        function updateInsumosDisplay() {
+            insumosScannedList.innerHTML = '';
+            if (insumosData.length === 0) {
+                insumosScannedList.appendChild(emptyInsumoMessage);
+                emptyInsumoMessage.classList.remove('hidden');
+            } else {
+                emptyInsumoMessage.classList.add('hidden');
+                insumosData.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between items-center py-1 border-b border-gray-100';
+                    li.innerHTML = `<span class="font-mono text-gray-800">${item.modelo}</span><span class="text-gray-600">x${item.cantidad}</span><button class="delete-btn text-red-500 hover:text-red-700 font-bold p-1 rounded-full text-xs" onclick="deleteInsumo(${index})" title="Eliminar insumo">[X]</button>`;
+                    insumosScannedList.appendChild(li);
+                });
+                insumosScannedList.scrollTop = insumosScannedList.scrollHeight;
+            }
+        }
+
+        // Función que lanza el envío combinado
+        function finalizeBatchAndSend() {
+            if (insumosData.length === 0) {
+                if (!confirm("ADVERTENCIA: No ha agregado ningún insumo. ¿Desea enviar el lote de series de todos modos?")) {
+                    return;
+                }
+            }
+            
+            document.getElementById('add-insumo-button').disabled = true;
+            document.getElementById('finish-insumo-button').disabled = true;
+
+            hideInsumosModal();
+            
+            // Prepara el payload
+            const seriesData = batchData.map(item => ({
+                ...item,
+                modelo: currentModel,
+                rework: currentReworkType,    
+                hospital: currentHospitalType,
+                paymentArea: currentPaymentArea, 
+                client: currentClient,
+                origin: currentOrigin,
+                loteId: "PENDIENTE",
+                operator: "AUTO" 
+            }));
+            
+            const payload = {
+                series: seriesData,
+                insumos: insumosData,
+                clasificacion: {
+                    action: currentReworkType !== "N/A" ? currentReworkType : currentHospitalType,
+                    paymentArea: currentPaymentArea,
+                    client: currentClient,
+                    origin: currentOrigin,
+                    modeloPrincipal: currentModel
+                }
+            };
+            
+            sendCombinedDataToSheets(payload); 
+        }
+
+        // --- INICIALIZACIÓN ---
         window.onload = function() {
             initializeModals();
             maintainFocus();
