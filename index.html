@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner de Modelo y Series por Lotes - Cliente</title>
+    <title>Escáner de Modelo y Series por Lotes - Origen</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -62,19 +62,19 @@
             </button>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
             <button
                 id="send-batch-button"
-                class="py-4 rounded-xl shadow-lg text-sm md:text-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                class="py-4 rounded-xl shadow-lg text-xs md:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 onclick="promptReworkType()"
                 disabled
             >
-                Clasificar Re-trabajo
+                Re-trabajo
             </button>
 
             <button
                 id="hospital-button"
-                class="py-4 rounded-xl shadow-lg text-sm md:text-lg font-bold text-white bg-red-600 hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                class="py-4 rounded-xl shadow-lg text-xs md:text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 onclick="showHospitalModal()"
                 disabled
             >
@@ -83,20 +83,29 @@
         
             <button
                 id="payment-button"
-                class="py-4 rounded-xl shadow-lg text-sm md:text-lg font-bold text-white bg-orange-600 hover:bg-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                class="py-4 rounded-xl shadow-lg text-xs md:text-sm font-bold text-white bg-orange-600 hover:bg-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 onclick="promptPaymentArea()"
                 disabled
             >
-                💲 Área a Pagar
+                💲 Área Pagar
             </button>
             
             <button
                 id="client-button"
-                class="py-4 rounded-xl shadow-lg text-sm md:text-lg font-bold text-white bg-green-600 hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                class="py-4 rounded-xl shadow-lg text-xs md:text-sm font-bold text-white bg-green-600 hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 onclick="showClientModal()"
                 disabled
             >
                 🛒 Cliente
+            </button>
+            
+            <button
+                id="origin-button"
+                class="py-4 rounded-xl shadow-lg text-xs md:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                onclick="showOriginModal()"
+                disabled
+            >
+                📍 Origen
             </button>
         </div>
 
@@ -237,20 +246,44 @@
             </div>
         </div>
     </div>
+
+    <div id="origin-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+            <h2 class="text-2xl font-bold text-blue-700 mb-4">
+                Seleccione Origen del Producto
+            </h2>
+            <p class="text-gray-600 mb-6">
+                Elija la fuente inicial del problema o acción.
+            </p>
+
+            <div id="origin-options" class="space-y-3">
+                </div>
+            
+            <div class="mt-6 flex justify-end">
+                <button
+                    onclick="hideOriginModal()"
+                    class="py-2 px-4 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+                >
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
     <script>
         // *******************************************************************
         // 🚀 URL DE TU GOOGLE APPS SCRIPT (YA ESTÁ PUESTA)
-        const SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbygXy-v2bhDwDXXkEMfjCQfXhWmTKyGBp1E7buUsbJRo_Lj9oH6JlwY-gff_60wENLhKg/exec";
+        const SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyd6f0qF0rmUSuEIBcAAeVfXGzfwSM0c0QYuY36HApSEWTjkiN41e5Y9fhEt767XrP6TQ/exec";
         // *******************************************************************
         
         let batchData = []; 
         let currentModel = null;
         
-        // --- VARIABLES DE CLASIFICACIÓN ---
+        // --- VARIABLES DE CLASIFICACIÓN (5) ---
         let currentReworkType = "N/A";
         let currentHospitalType = "N/A";
         let currentPaymentArea = "N/A"; 
-        let currentClient = "N/A"; // NUEVA VARIABLE
+        let currentClient = "N/A"; 
+        let currentOrigin = "N/A"; // NUEVA
         
         // --- CONSTANTES ---
         const REWORK_TYPES = [
@@ -259,8 +292,11 @@
         const PAYMENT_AREAS = [
             "CUA", "Rechazos", "Devoluciones", "Req Cliente", "Incidente Almacen"
         ];
-        const CLIENTS = [ // NUEVAS OPCIONES
+        const CLIENTS = [ 
             "Liverpool", "Palacio de Hierro", "Encanto", "Sears", "Elektra", "Chedraui", "Walmart", "KB&C", "Soriana", "Tiendas DLM", "D2C", "Costco", "Bodega SAPI", "Contencion", "Otro"
+        ];
+        const ORIGIN_OPTIONS = [ // NUEVAS OPCIONES
+            "Rechazo", "CUA", "Operaciones", "Req. Cliente", "Devolucion", "Incidente Almacen"
         ];
         
         // --- ELEMENTOS HTML ---
@@ -269,17 +305,19 @@
         const sendBatchButton = document.getElementById('send-batch-button');
         const hospitalButton = document.getElementById('hospital-button');
         const paymentButton = document.getElementById('payment-button');
-        const clientButton = document.getElementById('client-button'); // NUEVO BOTÓN
+        const clientButton = document.getElementById('client-button');
+        const originButton = document.getElementById('origin-button'); // NUEVO BOTÓN
         const completeBatchButton = document.getElementById('complete-batch-button'); 
         const reworkModal = document.getElementById('rework-modal');
         const hospitalModal = document.getElementById('hospital-modal'); 
         const paymentModal = document.getElementById('payment-modal'); 
-        const clientModal = document.getElementById('client-modal'); // NUEVA MODAL
+        const clientModal = document.getElementById('client-modal');
+        const originModal = document.getElementById('origin-modal'); // NUEVA MODAL
         const reworkOptionsContainer = document.getElementById('rework-options');
         const paymentOptionsContainer = document.getElementById('payment-options'); 
-        const clientSelect = document.getElementById('client-select'); // NUEVO SELECT
+        const originOptionsContainer = document.getElementById('origin-options'); // NUEVO CONTENEDOR
+        const clientSelect = document.getElementById('client-select');
 
-        // ... (otras variables de elementos) ...
         const scannedDataElement = document.getElementById('scanned-data');
         const timestampElement = document.getElementById('timestamp');
         const batchCountElement = document.getElementById('batch-count');
@@ -305,8 +343,17 @@
             button.onclick = () => selectPaymentArea(type);
             paymentOptionsContainer.appendChild(button);
         });
+        
+        // Inicializar opciones de la modal de Origen (NUEVO)
+        ORIGIN_OPTIONS.forEach(type => {
+            const button = document.createElement('button');
+            button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition shadow-md';
+            button.textContent = type;
+            button.onclick = () => selectOrigin(type);
+            originOptionsContainer.appendChild(button);
+        });
 
-        // Inicializar opciones de la modal de Cliente (SELECT DROP-DOWN)
+        // Inicializar opciones de la modal de Cliente
         const initialOption = document.createElement('option');
         initialOption.value = "";
         initialOption.textContent = "--- Seleccione el Cliente ---";
@@ -319,7 +366,7 @@
             clientSelect.appendChild(option);
         });
 
-        // --- FUNCIONES DE MODAL Y CLASIFICACIÓN ---
+        // --- FUNCIONES DE MODAL ---
 
         function showReworkModal() {
             reworkModal.classList.remove('hidden');
@@ -355,15 +402,27 @@
             maintainFocus(); 
         }
         
-        function showClientModal() { // NUEVA FUNCIÓN
+        function showClientModal() { 
              if (batchData.length > 0) {
                  clientModal.classList.remove('hidden');
                  scannerInput.blur(); 
             }
         }
         
-        function hideClientModal() { // NUEVA FUNCIÓN
+        function hideClientModal() { 
             clientModal.classList.add('hidden');
+            maintainFocus(); 
+        }
+        
+        function showOriginModal() { // NUEVA FUNCIÓN
+             if (batchData.length > 0) {
+                 originModal.classList.remove('hidden');
+                 scannerInput.blur(); 
+            }
+        }
+        
+        function hideOriginModal() { // NUEVA FUNCIÓN
+            originModal.classList.add('hidden');
             maintainFocus(); 
         }
 
@@ -379,7 +438,53 @@
             }
         }
         
-        // FUNCIÓN SELECT CLIENTE (MANEJA EL DROP-DOWN)
+        function promptOrigin() { // NUEVA FUNCIÓN
+             if (batchData.length > 0) {
+                showOriginModal();
+            }
+        }
+        
+
+        // --- FUNCIONES DE SELECCIÓN ---
+
+        // CLASIFICACIÓN 1: Re-trabajo
+        function selectReworkType(type) {
+            hideReworkModal();
+            currentReworkType = type; 
+            currentHospitalType = "N/A"; // Limpia Hospital
+            updateBatchDisplay();
+            
+            const actionType = currentReworkType !== "N/A" ? currentReworkType : currentHospitalType;
+            statusArea.textContent = `✅ Acción: ${actionType}. Faltan Costo, Cliente y Origen.`;
+            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+            statusArea.classList.add('bg-green-100', 'text-green-700');
+        }
+
+        // CLASIFICACIÓN 2: Hospital
+        function selectHospitalType(type) { 
+            hideHospitalModal();
+            currentHospitalType = type; 
+            currentReworkType = "N/A"; // Limpia Re-trabajo
+            updateBatchDisplay();
+            
+            const actionType = currentReworkType !== "N/A" ? currentReworkType : currentHospitalType;
+            statusArea.textContent = `✅ Acción: ${actionType}. Faltan Costo, Cliente y Origen.`;
+            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+            statusArea.classList.add('bg-green-100', 'text-green-700');
+        }
+        
+        // CLASIFICACIÓN 3: Área a Pagar
+        function selectPaymentArea(type) { 
+            hidePaymentModal();
+            currentPaymentArea = type; 
+            updateBatchDisplay();
+            
+            statusArea.textContent = `✅ Costo: ${type}. Faltan Acción, Cliente y Origen.`;
+            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+            statusArea.classList.add('bg-green-100', 'text-green-700');
+        }
+        
+        // CLASIFICACIÓN 4: Cliente
         function selectClient() {
             const selectedClient = clientSelect.value;
             
@@ -392,70 +497,43 @@
             currentClient = selectedClient; 
             updateBatchDisplay();
             
-            statusArea.textContent = `✅ Cliente: ${selectedClient}. Presione "LOTE TERMINADO" para enviar.`;
-            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
-            statusArea.classList.add('bg-green-100', 'text-green-700');
-        }
-
-
-        // CLASIFICACIÓN 1: Re-trabajo
-        function selectReworkType(type) {
-            hideReworkModal();
-            currentReworkType = type; 
-            currentHospitalType = "N/A"; // Limpiar Hospital
-            updateBatchDisplay();
-            
-            statusArea.textContent = `✅ Clasificación: ${type}. Presione "LOTE TERMINADO" para enviar.`;
-            statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
-            statusArea.classList.add('bg-green-100', 'text-green-700');
-        }
-
-        // CLASIFICACIÓN 2: Hospital
-        function selectHospitalType(type) { 
-            hideHospitalModal();
-            currentHospitalType = type; 
-            currentReworkType = "N/A"; // Limpiar Re-trabajo
-            updateBatchDisplay();
-            
-            statusArea.textContent = `✅ Clasificación: ${type}. Presione "LOTE TERMINADO" para enviar.`;
+            statusArea.textContent = `✅ Cliente: ${selectedClient}. Faltan Acción, Costo y Origen.`;
             statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
             statusArea.classList.add('bg-green-100', 'text-green-700');
         }
         
-        // CLASIFICACIÓN 3: Área a Pagar
-        function selectPaymentArea(type) { 
-            hidePaymentModal();
-            currentPaymentArea = type; 
+        // CLASIFICACIÓN 5: Origen (NUEVO)
+        function selectOrigin(type) {
+            hideOriginModal();
+            currentOrigin = type; 
             updateBatchDisplay();
             
-            statusArea.textContent = `✅ Clasificación de Costo: ${type}. Presione "LOTE TERMINADO" para enviar.`;
+            statusArea.textContent = `✅ Origen: ${type}. Faltan Acción, Costo y Cliente.`;
             statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
             statusArea.classList.add('bg-green-100', 'text-green-700');
         }
 
 
-        // FUNCIÓN CLAVE: Envío final (APLICA LA REGLA DE TRES CRITERIOS)
+        // FUNCIÓN CLAVE: Envío final (APLICA LA REGLA DE CUATRO CRITERIOS)
         function completeBatch() {
             if (batchData.length === 0 || !currentModel) return;
             
-            // Regla de Negocio: Se requiere Acción, Costo y Cliente
+            // Regla de Negocio: Se requieren 4 criterios independientes
             const actionIsDefined = currentReworkType !== "N/A" || currentHospitalType !== "N/A";
             const costCenterIsDefined = currentPaymentArea !== "N/A";
-            const clientIsDefined = currentClient !== "N/A"; // TERCER CRITERIO
+            const clientIsDefined = currentClient !== "N/A";
+            const originIsDefined = currentOrigin !== "N/A"; // CUARTO CRITERIO
             
             let errorMsg = "ERROR: Debe seleccionar ";
             let errorCount = 0;
             
             if (!actionIsDefined) { errorMsg += "una ACCIÓN (Re-trabajo O Hospital)"; errorCount++; }
             if (!costCenterIsDefined) { errorMsg += (errorCount > 0 ? ", " : "") + "el ÁREA A PAGAR"; errorCount++; }
-            if (!clientIsDefined) { errorMsg += (errorCount > 0 ? ", " : "") + "el CLIENTE."; errorCount++; }
+            if (!clientIsDefined) { errorMsg += (errorCount > 0 ? ", " : "") + "el CLIENTE"; errorCount++; }
+            if (!originIsDefined) { errorMsg += (errorCount > 0 ? ", " : "") + "el ORIGEN."; errorCount++; } // NUEVO
             
-            if (!actionIsDefined || !costCenterIsDefined || !clientIsDefined) {
+            if (!actionIsDefined || !costCenterIsDefined || !clientIsDefined || !originIsDefined) {
                 alert(errorMsg);
-                // Intenta mostrar la modal faltante para guiar al usuario
-                if (!actionIsDefined) showReworkModal(); 
-                else if (!costCenterIsDefined) showPaymentModal();
-                else showClientModal();
                 
                 statusArea.textContent = '❌ ENVÍO CANCELADO. Faltan clasificaciones.';
                 statusArea.classList.remove('bg-green-100', 'text-green-700');
@@ -463,13 +541,13 @@
                 return;
             }
 
-            // Si los tres criterios están definidos
+            // Si los CUATRO criterios están definidos
             const actionType = currentReworkType !== "N/A" ? currentReworkType : currentHospitalType;
 
-            if (confirm(`ADVERTENCIA: ¿Está seguro que desea finalizar el lote (${actionType}) para el cliente ${currentClient}?`)) {
+            if (confirm(`ADVERTENCIA: ¿Está seguro que desea finalizar el lote (${actionType}) para el cliente ${currentClient} y origen ${currentOrigin}?`)) {
                  
-                 // Llama a la función de envío con los 4 criterios
-                 sendBatchToSheets(currentReworkType, currentHospitalType, currentPaymentArea, currentClient, "PENDIENTE", "AUTO"); 
+                 // Llama a la función de envío con los 5 criterios
+                 sendBatchToSheets(currentReworkType, currentHospitalType, currentPaymentArea, currentClient, currentOrigin, "PENDIENTE", "AUTO"); 
             }
         }
 
@@ -481,12 +559,12 @@
                 scannerInput.focus();
                 if (!statusArea.classList.contains('bg-yellow-500') && !statusArea.classList.contains('bg-red-500')) {
                     if (currentModel) {
-                        const actionType = currentReworkType !== "N/A" ? currentReworkType : (currentHospitalType !== "N/A" ? currentHospitalType : currentPaymentArea);
-                        if (actionType !== "N/A") {
-                            statusArea.textContent = `✅ Clasificación: ${actionType}. Presione "LOTE TERMINADO" para enviar.`;
+                        const actionType = currentReworkType !== "N/A" ? currentReworkType : (currentHospitalType !== "N/A" ? currentHospitalType : "N/A");
+                        if (actionType !== "N/A" && currentClient !== "N/A" && currentPaymentArea !== "N/A" && currentOrigin !== "N/A") {
+                            statusArea.textContent = `✅ LISTO PARA ENVIAR. Clasificación Completa.`;
                             statusArea.classList.add('bg-green-100', 'text-green-700');
                         } else {
-                            statusArea.textContent = `✅ Listo para escanear SERIES. Modelo: ${currentModel}. (Sin clasificar)`;
+                            statusArea.textContent = `✅ Listo para escanear SERIES. Modelo: ${currentModel}. (Aún faltan criterios)`;
                             statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
                             statusArea.classList.add('bg-green-100', 'text-green-700');
                         }
@@ -510,7 +588,8 @@
             currentReworkType = "N/A"; 
             currentHospitalType = "N/A"; 
             currentPaymentArea = "N/A"; 
-            currentClient = "N/A"; // REINICIAR CLIENTE
+            currentClient = "N/A"; 
+            currentOrigin = "N/A"; // REINICIAR ORIGEN
             currentModelDisplay.textContent = "[Aún no se ha escaneado un Modelo]";
             scannedDataElement.textContent = "[Ninguna]";
             timestampElement.textContent = "Hora de escaneo: N/A";
@@ -540,19 +619,21 @@
             
             const isReady = batchData.length > 0 && currentModel !== null;
             
-            // Tres criterios de definición
+            // Cuatro criterios de definición
             const actionIsDefined = currentReworkType !== "N/A" || currentHospitalType !== "N/A";
             const costCenterIsDefined = currentPaymentArea !== "N/A";
-            const clientIsDefined = currentClient !== "N/A"; // NUEVO
+            const clientIsDefined = currentClient !== "N/A";
+            const originIsDefined = currentOrigin !== "N/A"; // CUARTO CRITERIO
             
             // Los botones de clasificación solo se deshabilitan si NO hay datos
             sendBatchButton.disabled = !isReady; 
             hospitalButton.disabled = !isReady; 
             paymentButton.disabled = !isReady; 
-            clientButton.disabled = !isReady; // NUEVO
+            clientButton.disabled = !isReady;
+            originButton.disabled = !isReady; // NUEVO
             
-            // El botón FINALIZAR requiere las TRES CLASIFICACIONES
-            completeBatchButton.disabled = !isReady || !(actionIsDefined && costCenterIsDefined && clientIsDefined); 
+            // El botón FINALIZAR requiere las CUATRO CLASIFICACIONES
+            completeBatchButton.disabled = !isReady || !(actionIsDefined && costCenterIsDefined && clientIsDefined && originIsDefined); 
             
             resetModelButton.disabled = currentModel === null; 
 
@@ -581,8 +662,8 @@
             }
         }
 
-        // FUNCIÓN DE ENVÍO UNIFICADA (Añadida la variable client)
-        async function sendBatchToSheets(reworkType, hospitalType, paymentArea, client, loteId, operatorId) {
+        // FUNCIÓN DE ENVÍO UNIFICADA (Añadida la variable origin)
+        async function sendBatchToSheets(reworkType, hospitalType, paymentArea, client, origin, loteId, operatorId) {
             if (batchData.length === 0 || !currentModel) return;
             
             const dataToSend = batchData.map(item => ({
@@ -591,22 +672,24 @@
                 rework: reworkType,    
                 hospital: hospitalType,
                 paymentArea: paymentArea, 
-                client: client, // NUEVO CAMPO CLIENTE
+                client: client,
+                origin: origin, // NUEVO CAMPO ORIGEN
                 loteId: loteId,         
                 operator: operatorId 
             }));
 
             const currentCount = dataToSend.length;
             
-            const actionType = reworkType !== "N/A" ? reworkType : hospitalType; // Solo acción primaria
+            const actionType = reworkType !== "N/A" ? reworkType : hospitalType; 
             
-            statusArea.textContent = `⏳ FINALIZANDO y Enviando ${currentCount} Series (${actionType} / ${client})...`;
+            statusArea.textContent = `⏳ FINALIZANDO y Enviando ${currentCount} Series...`;
             statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
             statusArea.classList.add('bg-yellow-500', 'text-white');
             sendBatchButton.disabled = true;
             hospitalButton.disabled = true;
             paymentButton.disabled = true; 
-            clientButton.disabled = true; // DESHABILITAR
+            clientButton.disabled = true;
+            originButton.disabled = true; // DESHABILITAR ORIGEN
             completeBatchButton.disabled = true;
 
             try {
@@ -625,7 +708,8 @@
                 currentReworkType = "N/A"; 
                 currentHospitalType = "N/A"; 
                 currentPaymentArea = "N/A"; 
-                currentClient = "N/A"; // LIMPIAR CLIENTE
+                currentClient = "N/A"; 
+                currentOrigin = "N/A"; // LIMPIAR ORIGEN
                 scannedDataElement.textContent = "[Lote finalizado, listo para el siguiente Modelo]";
                 timestampElement.textContent = `Último envío: ${new Date().toLocaleTimeString()} (${new Date().toLocaleDateString()})`;
                 
@@ -681,11 +765,11 @@
 
                         updateBatchDisplay();
 
-                        const actionType = currentReworkType !== "N/A" ? currentReworkType : (currentHospitalType !== "N/A" ? currentHospitalType : currentPaymentArea);
-                        if (actionType !== "N/A") {
-                           statusArea.textContent = `✔️ Serie añadida. Clasificación actual: ${actionType}.`;
+                        const actionType = currentReworkType !== "N/A" ? currentReworkType : (currentHospitalType !== "N/A" ? currentHospitalType : "N/A");
+                        if (actionType !== "N/A" && currentClient !== "N/A" && currentPaymentArea !== "N/A" && currentOrigin !== "N/A") {
+                           statusArea.textContent = `✔️ Serie añadida. LISTO PARA ENVIAR.`;
                         } else {
-                           statusArea.textContent = `✔️ Serie añadida. Clasifique la acción y el costo.`;
+                           statusArea.textContent = `✔️ Serie añadida. Aún faltan criterios.`;
                         }
                         
                         statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
