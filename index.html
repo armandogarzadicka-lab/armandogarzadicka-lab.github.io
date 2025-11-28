@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner de Modelo y Series por Lotes - Hospital</title>
+    <title>Escáner de Modelo y Series por Lotes - Lote ID</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -96,8 +96,18 @@
                 </ul>
             </div>
         </div>
-
-    </div>
+        
+        <div class="mt-12 text-center">
+            <button
+                id="complete-batch-button"
+                class="py-4 px-12 rounded-xl shadow-lg text-lg font-bold text-white bg-gray-800 hover:bg-gray-900 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+                onclick="completeBatch()"
+                disabled
+            >
+                LOTE TERMINADO
+            </button>
+        </div>
+        </div>
 
     <div id="rework-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden">
         <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
@@ -159,7 +169,7 @@
     <script>
         // *******************************************************************
         // 🚀 URL DE TU GOOGLE APPS SCRIPT (YA ESTÁ PUESTA)
-        const SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxg8DpBjsOX_krl-mt-QJ8T-eRg7cqOL8GM7hpmkWhI04cjXQYEKu3mMTeNaaTTT3IxrA/exec";
+        const SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxPe-C0wWz06CiriVYwKubese9rsswwBxQvBSpgstacUjP-6putBZj2XBITVK7StA6Ebg/exec";
         // *******************************************************************
         
         let batchData = []; 
@@ -174,9 +184,10 @@
         const scannerInput = document.getElementById('scanner-input');
         const statusArea = document.getElementById('status-area');
         const sendBatchButton = document.getElementById('send-batch-button');
-        const hospitalButton = document.getElementById('hospital-button'); // NUEVO
+        const hospitalButton = document.getElementById('hospital-button');
+        const completeBatchButton = document.getElementById('complete-batch-button'); // NUEVO BOTÓN
         const reworkModal = document.getElementById('rework-modal');
-        const hospitalModal = document.getElementById('hospital-modal'); // NUEVO
+        const hospitalModal = document.getElementById('hospital-modal'); 
         const reworkOptionsContainer = document.getElementById('rework-options');
 
         // ... (otras variables de elementos) ...
@@ -209,14 +220,14 @@
             maintainFocus(); 
         }
 
-        function showHospitalModal() { // NUEVA FUNCIÓN
+        function showHospitalModal() { 
             if (batchData.length > 0) {
                  hospitalModal.classList.remove('hidden');
                  scannerInput.blur(); 
             }
         }
         
-        function hideHospitalModal() { // NUEVA FUNCIÓN
+        function hideHospitalModal() { 
             hospitalModal.classList.add('hidden');
             maintainFocus(); 
         }
@@ -225,15 +236,25 @@
         function selectReworkType(type) {
             hideReworkModal();
             // Llama a la función de envío con el tipo de re-trabajo
-            sendBatchToSheets(type, "N/A"); // Se asume N/A para Hospital
+            sendBatchToSheets(type, "N/A", "N/A"); // LoteID es N/A en envíos regulares
         }
 
         // Función llamada al seleccionar Hospital
-        function selectHospitalType(type) { // NUEVA FUNCIÓN
+        function selectHospitalType(type) { 
             hideHospitalModal();
             // Llama a la función de envío con el tipo de hospital
-            sendBatchToSheets("N/A", type); // Se asume N/A para Re-trabajo
+            sendBatchToSheets("N/A", type, "N/A"); // LoteID es N/A en envíos regulares
         }
+        
+        // FUNCIÓN PARA EL BOTÓN LOTE TERMINADO (NUEVA)
+        function completeBatch() {
+            if (batchData.length === 0 || !currentModel) return;
+            if (confirm("ADVERTENCIA: ¿Está seguro que desea finalizar el lote? Se asignará un ID único de Lote a todas las series.")) {
+                 // Usa "Lote Terminado" como clasificacion de rework, y le pide al servidor que genere el ID.
+                 sendBatchToSheets("Lote Terminado", "N/A", "PENDIENTE"); 
+            }
+        }
+
 
         // Función que reemplaza el onclick directo del botón Enviar Lote
         function promptReworkType() {
@@ -248,7 +269,6 @@
         function maintainFocus() {
             setTimeout(() => {
                 scannerInput.focus();
-                // Omitir cambios de estado si estamos en un estado de envío o error (red-500/yellow-500)
                 if (!statusArea.classList.contains('bg-yellow-500') && !statusArea.classList.contains('bg-red-500')) {
                     if (currentModel) {
                         statusArea.textContent = `✅ Listo para escanear SERIES. Modelo: ${currentModel}`;
@@ -299,7 +319,8 @@
             
             const isReady = batchData.length > 0 && currentModel !== null;
             sendBatchButton.disabled = !isReady;
-            hospitalButton.disabled = !isReady; // HABILITAR HOSPITAL SI HAY DATOS
+            hospitalButton.disabled = !isReady; 
+            completeBatchButton.disabled = !isReady; // HABILITAR BOTÓN
             resetModelButton.disabled = currentModel === null; 
 
             scannedListElement.innerHTML = '';
@@ -328,60 +349,58 @@
         }
 
         // *******************************************************************
-        // FUNCIÓN DE ENVÍO UNIFICADA
+        // FUNCIÓN DE ENVÍO UNIFICADA (Añadida la variable loteId)
         // *******************************************************************
-        
-        async function sendBatchToSheets(reworkType, hospitalType) {
-    if (batchData.length === 0 || !currentModel) return;
-    
-    // --- Lógica de Mapeo de Datos CORREGIDA ---
-    // Adjuntamos el tipo de re-trabajo Y hospital a CADA registro
-    const dataToSend = batchData.map(item => ({
-        // Copiamos los datos básicos de la serie
-        timestamp: item.timestamp,
-        modelo: currentModel,
-        serie: item.serie,
-        longitud: item.longitud,
-        // Agregamos los campos de la modal que son iguales para todo el lote
-        rework: reworkType,    // <--- Tipo de Re-trabajo
-        hospital: hospitalType // <--- Tipo de Hospital
-    }));
+        async function sendBatchToSheets(reworkType, hospitalType, loteId) {
+            if (batchData.length === 0 || !currentModel) return;
+            
+            // Adjuntamos la clasificación y el placeholder de Lote ID a CADA registro
+            const dataToSend = batchData.map(item => ({
+                ...item,
+                modelo: currentModel,
+                rework: reworkType,    // Tipo de Re-trabajo (NOM, Artesanal, N/A, Lote Terminado)
+                hospital: hospitalType, // Tipo de Hospital (Rojo, Verde, N/A)
+                loteId: loteId         // ID de Lote (PENDIENTE o N/A)
+            }));
 
-    // El resto de la función sigue igual (envío y limpieza)
-    const currentCount = dataToSend.length;
-    const actionType = reworkType !== "N/A" ? reworkType : hospitalType;
+            const currentCount = dataToSend.length;
+            const actionType = reworkType !== "N/A" ? reworkType : hospitalType;
 
-    statusArea.textContent = `⏳ Enviando ${currentCount} Series (${actionType})...`;
-    statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
-    statusArea.classList.add('bg-yellow-500', 'text-white');
-    sendBatchButton.disabled = true;
-    hospitalButton.disabled = true;
+            statusArea.textContent = `⏳ Enviando ${currentCount} Series (${actionType})...`;
+            statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+            statusArea.classList.add('bg-yellow-500', 'text-white');
+            sendBatchButton.disabled = true;
+            hospitalButton.disabled = true;
+            completeBatchButton.disabled = true;
 
-    try {
-        await fetch(SHEETS_WEB_APP_URL, {
-            method: 'POST',
-            mode: 'no-cors', 
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ batch: dataToSend }) 
-        });
-        
-        statusArea.textContent = `🎉 ¡Lote enviado con éxito! (${actionType})`;
-        
-        batchData = []; 
-        scannedDataElement.textContent = "[Lote enviado, listo para el siguiente Modelo]";
-        timestampElement.textContent = `Último envío: ${new Date().toLocaleTimeString()} (${new Date().toLocaleDateString()})`;
-        
-    } catch (error) {
-        console.error('Error al enviar a Google Sheets:', error);
-        statusArea.textContent = '❌ Fallo de conexión al enviar a Sheets.';
-        statusArea.classList.add('bg-red-500', 'text-white');
-    } finally {
-        updateBatchDisplay();
-        setTimeout(maintainFocus, 3000); 
-    }
-}
+            try {
+                const response = await fetch(SHEETS_WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', 
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ batch: dataToSend }) 
+                });
+                
+                // Nota: Debido a 'no-cors', no podemos leer el cuerpo de la respuesta directamente.
+                // Confiamos en que Apps Script generó el ID.
+                statusArea.textContent = `🎉 ¡Lote enviado con éxito! (${actionType})`;
+                
+                batchData = []; 
+                scannedDataElement.textContent = "[Lote enviado, listo para el siguiente Modelo]";
+                timestampElement.textContent = `Último envío: ${new Date().toLocaleTimeString()} (${new Date().toLocaleDateString()})`;
+                
+            } catch (error) {
+                console.error('Error al enviar a Google Sheets:', error);
+                statusArea.textContent = '❌ Fallo de conexión al enviar a Sheets.';
+                statusArea.classList.add('bg-red-500', 'text-white');
+            } finally {
+                updateBatchDisplay();
+                setTimeout(maintainFocus, 3000); 
+            }
+        }
+
 
         // Escucha de escaneo principal
         scannerInput.addEventListener('change', function() {
