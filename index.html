@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner de Modelo y Series por Lotes</title>
+    <title>Escáner de Modelo y Series por Lotes - Edición</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
             background-color: #e5e7eb;
+        }
+        .delete-btn {
+            line-height: 1; 
         }
     </style>
 </head>
@@ -83,12 +86,12 @@
 
     <script>
         // *******************************************************************
-        // ⚠️ DEBES REEMPLAZAR ESTE VALOR CON LA URL DE TU APLICACIÓN WEB DE GOOGLE APPS SCRIPT
+        // 🚀 URL DE TU GOOGLE APPS SCRIPT (YA ESTÁ PUESTA)
         const SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyd6f0qF0rmUSuEIBcAAeVfXGzfwSM0c0QYuY36HApSEWTjkiN41e5Y9fhEt767XrP6TQ/exec";
         // *******************************************************************
         
-        let batchData = []; // Lista donde se almacenarán los códigos de SERIE
-        let currentModel = null; // Almacena el código de MODELO
+        let batchData = []; 
+        let currentModel = null; 
         
         const scannerInput = document.getElementById('scanner-input');
         const scannedDataElement = document.getElementById('scanned-data');
@@ -104,17 +107,14 @@
         function maintainFocus() {
             setTimeout(() => {
                 scannerInput.focus();
-                // Si el foco se pierde y no estamos en envío (yellow/red), actualizamos el estado visual de "Listo"
                 if (!statusArea.classList.contains('bg-yellow-500') && !statusArea.classList.contains('bg-red-500')) {
                     if (currentModel) {
-                        // Estado de listo para escanear Series
                         statusArea.textContent = `✅ Listo para escanear SERIES. Modelo: ${currentModel}`;
-                        statusArea.classList.remove('bg-yellow-100', 'text-yellow-700');
+                        statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
                         statusArea.classList.add('bg-green-100', 'text-green-700');
                     } else {
-                        // Estado de esperando Modelo
                         statusArea.textContent = '🟡 ESCANEE PRIMERO EL CÓDIGO DEL MODELO.';
-                        statusArea.classList.remove('bg-green-100', 'text-green-700');
+                        statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-red-100', 'text-red-700');
                         statusArea.classList.add('bg-yellow-100', 'text-yellow-700');
                     }
                 }
@@ -123,12 +123,10 @@
 
         function resetModel() {
             if (batchData.length > 0) {
-                // Confirmación para evitar pérdida accidental de datos
                 if (!confirm("ADVERTENCIA: ¿Desea reiniciar el Modelo y descartar las series escaneadas actualmente?")) {
                     return;
                 }
             }
-            // Resetear variables y UI
             currentModel = null;
             batchData = []; 
             currentModelDisplay.textContent = "[Aún no se ha escaneado un Modelo]";
@@ -138,18 +136,27 @@
             updateBatchDisplay();
             maintainFocus();
         }
+        
+        function deleteSeries(index) {
+            if (index > -1 && index < batchData.length) {
+                const deletedCode = batchData[index].serie;
+                batchData.splice(index, 1); 
+                
+                updateBatchDisplay();
+                maintainFocus();
+                
+                statusArea.textContent = `🗑️ Serie ${deletedCode} eliminada del lote.`;
+                statusArea.classList.remove('bg-green-100', 'text-green-700');
+                statusArea.classList.add('bg-red-100', 'text-red-700');
+            }
+        }
+        window.deleteSeries = deleteSeries; 
 
         function updateBatchDisplay() {
-            // Actualiza el contador y el estado del botón
             batchCountElement.textContent = batchData.length;
-            
-            // Solo permitir el envío si hay series Y hay un modelo definido
             sendBatchButton.disabled = batchData.length === 0 || currentModel === null;
-            
-            // El botón de resetear se habilita solo si hay un modelo y se deshabilita si hay series escaneadas
-            resetModelButton.disabled = currentModel === null;
+            resetModelButton.disabled = currentModel === null; 
 
-            // Actualiza la lista en pantalla
             scannedListElement.innerHTML = '';
             if (batchData.length === 0) {
                 scannedListElement.appendChild(emptyMessageElement);
@@ -158,10 +165,16 @@
                 emptyMessageElement.classList.add('hidden');
                 batchData.forEach((item, index) => {
                     const li = document.createElement('li');
-                    li.className = 'flex justify-between items-center p-1 border-b border-gray-100';
+                    li.className = 'flex justify-between items-center py-1 border-b border-gray-100';
                     li.innerHTML = `
                         <span class="font-mono text-gray-800">${item.serie}</span>
-                        <span class="text-xs text-gray-400">${item.timestamp.split(' ')[1]}</span>
+                        <button 
+                            class="delete-btn text-red-500 hover:text-red-700 font-bold p-1 rounded-full text-xs"
+                            onclick="deleteSeries(${index})"
+                            title="Eliminar serie del lote"
+                        >
+                            [X]
+                        </button>
                     `;
                     scannedListElement.appendChild(li);
                 });
@@ -171,22 +184,17 @@
 
         async function sendBatchToSheets() {
             if (batchData.length === 0 || !currentModel) return;
-            if (SHEETS_WEB_APP_URL.includes("PEGA_AQUÍ_LA_URL_DE_TU_APPS_SCRIPT")) {
-                statusArea.textContent = '🔴 ERROR: URL de Apps Script no configurada.';
-                statusArea.classList.add('bg-red-500', 'text-white');
-                return;
-            }
             
-            // Adjuntar el modelo a cada elemento antes de enviar
+            // La URL está bien, no se necesita el chequeo de marcador de posición
+            
             const dataToSend = batchData.map(item => ({
                 ...item,
                 modelo: currentModel
             }));
 
-            // Cambiar estado a Enviando
             const currentCount = dataToSend.length;
             statusArea.textContent = `⏳ Enviando ${currentCount} Series de Modelo ${currentModel}...`;
-            statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700');
+            statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
             statusArea.classList.add('bg-yellow-500', 'text-white');
             sendBatchButton.disabled = true;
 
@@ -200,10 +208,8 @@
                     body: JSON.stringify({ batch: dataToSend }) 
                 });
                 
-                // Si la solicitud fue enviada
                 statusArea.textContent = `🎉 ¡Lote de ${currentCount} series enviado con éxito!`;
                 
-                // Limpiar la lista después del envío exitoso
                 batchData = []; 
                 scannedDataElement.textContent = "[Lote enviado, listo para el siguiente Modelo]";
                 timestampElement.textContent = `Último envío: ${new Date().toLocaleTimeString()} (${new Date().toLocaleDateString()})`;
@@ -213,8 +219,6 @@
                 statusArea.textContent = '❌ Fallo de conexión o script al enviar a Sheets.';
                 statusArea.classList.add('bg-red-500', 'text-white');
             } finally {
-                // Volver a actualizar la interfaz después del intento
-                // Mantenemos el modelo actual hasta que el usuario lo reinicie
                 updateBatchDisplay();
                 setTimeout(maintainFocus, 3000); 
             }
@@ -227,41 +231,50 @@
 
             if (scannedCode) {
                 if (!currentModel) {
-                    // **MODO 1: Capturando el MODELO**
+                    // MODO 1: Capturando el MODELO
                     currentModel = scannedCode;
                     currentModelDisplay.textContent = currentModel;
                     resetModelButton.disabled = false;
                     
-                    // Ahora que tenemos el modelo, el estado cambia a listo para SERIES
                     statusArea.textContent = `✅ ¡Modelo capturado! Comience a escanear las SERIES.`;
-                    statusArea.classList.remove('bg-yellow-100', 'text-yellow-700');
+                    statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
                     statusArea.classList.add('bg-green-100', 'text-green-700');
                     scannedDataElement.textContent = `Modelo ${currentModel} capturado.`;
                     timestampElement.textContent = `Hora: ${new Date().toLocaleTimeString()}`;
 
                 } else {
-                    // **MODO 2: Capturando las SERIES**
-                    const now = new Date();
-                    const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+                    // MODO 2: Capturando las SERIES
                     
-                    // 1. Mostrar la Serie más reciente
-                    scannedDataElement.textContent = scannedCode;
-                    timestampElement.textContent = `Hora de escaneo: ${now.toLocaleTimeString()}`;
+                    const isDuplicate = batchData.some(item => item.serie === scannedCode);
 
-                    // 2. Almacenar en la lista de lote (solo la serie)
-                    batchData.push({
-                        serie: scannedCode,
-                        longitud: scannedCode.length,
-                        timestamp: formattedTime 
-                    });
+                    if (isDuplicate) {
+                        // Si es duplicado, mostramos una advertencia y no lo añadimos
+                        statusArea.textContent = `⚠️ DUPLICADO: La serie ${scannedCode} ya fue escaneada en este lote.`;
+                        statusArea.classList.remove('bg-green-100', 'text-green-700');
+                        statusArea.classList.add('bg-red-100', 'text-red-700');
+                        scannedDataElement.textContent = scannedCode; 
+                        timestampElement.textContent = `DUPLICADO detectado: ${new Date().toLocaleTimeString()}`;
+                        
+                    } else {
+                        // Si NO es duplicado, se añade normalmente
+                        const now = new Date();
+                        const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+                        
+                        scannedDataElement.textContent = scannedCode;
+                        timestampElement.textContent = `Hora de escaneo: ${now.toLocaleTimeString()}`;
 
-                    // 3. Actualizar la interfaz
-                    updateBatchDisplay();
+                        batchData.push({
+                            serie: scannedCode,
+                            longitud: scannedCode.length,
+                            timestamp: formattedTime 
+                        });
 
-                    // 4. Feedback visual rápido (cambia a verde claro para indicar serie añadida)
-                    statusArea.textContent = `✔️ Serie añadida. Sigue escaneando...`;
-                    statusArea.classList.remove('bg-yellow-100', 'text-yellow-700');
-                    statusArea.classList.add('bg-green-100', 'text-green-700');
+                        updateBatchDisplay();
+
+                        statusArea.textContent = `✔️ Serie añadida. Sigue escaneando...`;
+                        statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+                        statusArea.classList.add('bg-green-100', 'text-green-700');
+                    }
                 }
 
                 // Limpiar y re-enfocar
@@ -274,10 +287,8 @@
             }
         });
 
-        // Configuración inicial de foco y estado
+        // Eventos de Foco
         document.body.addEventListener('click', maintainFocus);
-        
-        // Bloque de manejo de pérdida de foco (Mantenido para alertar al usuario)
         window.addEventListener('blur', function() {
             statusArea.textContent = '🔴 Foco perdido. Toca la pantalla para reanudar el escaneo.';
             statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-green-100', 'text-green-700');
