@@ -689,12 +689,8 @@
         // Eventos de Foco
         document.body.addEventListener('click', maintainFocus);
         window.addEventListener('blur', function() { statusArea.textContent = '🔴 Foco perdido. Toca la pantalla para reanudar el escaneo.'; statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-green-100', 'text-green-700'); statusArea.classList.add('bg-red-100', 'text-red-700'); });
-        
-        window.onload = function() {
-            initializeModals();
-            maintainFocus();
-        };
-// --- FUNCIÓN DE ENVÍO FINAL ---
+
+        // --- FUNCIÓN DE ENVÍO FINAL ---
 
 async function sendCombinedDataToSheets(payload) {
     const currentCount = payload.series.length;
@@ -732,6 +728,10 @@ async function sendCombinedDataToSheets(payload) {
         setTimeout(maintainFocus, 3000); 
     }
 }
+        window.onload = function() {
+            initializeModals();
+            maintainFocus();
+        };
         
         // --- FIN DE SCRIPT ---
     </script>
