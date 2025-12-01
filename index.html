@@ -694,7 +694,45 @@
             initializeModals();
             maintainFocus();
         };
+// --- FUNCIÓN DE ENVÍO FINAL ---
 
+async function sendCombinedDataToSheets(payload) {
+    const currentCount = payload.series.length;
+    
+    // 1. Mostrar estado de envío
+    statusArea.textContent = `⏳ ENVIANDO ${currentCount} Series y ${payload.insumos.length} Insumos. Espere...`;
+    statusArea.classList.remove('bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700');
+    statusArea.classList.add('bg-yellow-500', 'text-white');
+    
+    // Deshabilitar botones principales
+    sendBatchButton.disabled = true; hospitalButton.disabled = true; paymentButton.disabled = true; clientButton.disabled = true; originButton.disabled = true; completeBatchButton.disabled = true; registerInsumosButton.disabled = true;
+
+    try {
+        // 2. Realizar la petición a Google Apps Script
+        await fetch(SHEETS_WEB_APP_URL, {
+            method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json', }, body: JSON.stringify(payload) 
+        });
+        
+        // 3. Éxito: Limpiar la interfaz y variables
+        statusArea.textContent = `🎉 ¡Lote de ${currentCount} series y ${payload.insumos.length} insumos FINALIZADO y enviado con éxito!`;
+        
+        batchData = []; insumosData = []; currentReworkType = "N/A"; currentHospitalType = "N/A"; currentPaymentArea = "N/A"; currentClient = "N/A"; currentOrigin = "N/A"; currentModel = null;
+        currentModelDisplay.textContent = "[Aún no se ha escaneado un Modelo]";
+        scannedDataElement.textContent = "[Lote finalizado, listo para el siguiente Modelo]";
+        timestampElement.textContent = `Último envío: ${new Date().toLocaleTimeString()} (${new Date().toLocaleDateString()})`;
+        
+    } catch (error) {
+        // 4. Manejo de Errores
+        console.error('Error al enviar a Google Sheets:', error);
+        statusArea.textContent = '❌ Fallo de conexión al enviar a Sheets.';
+        statusArea.classList.add('bg-red-500', 'text-white');
+    } finally {
+        // 5. Restaurar estado de botones y foco
+        updateBatchDisplay(); 
+        setTimeout(maintainFocus, 3000); 
+    }
+}
+        
         // --- FIN DE SCRIPT ---
     </script>
 </body>
