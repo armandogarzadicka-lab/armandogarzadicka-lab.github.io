@@ -299,7 +299,7 @@
     <script>
         // *******************************************************************
         // 🚀 URL DE TU GOOGLE APPS SCRIPT (Usando la última URL de trabajo)
-        const SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyqs0K1wCrW0fKQwYry37-681Wp6Kchqogdc9n4iMmtFQOa-dKQgvv8vn8CPx3zS1_KpQ/exec";
+        const SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbze22qUd4AEtWvVxc8shBojPAUQjMvgW_rHYcYYmln-L0oD6eTaf2N946VvQLh3jbFj/exec";
         // *******************************************************************
         
         let batchData = []; 
@@ -314,17 +314,17 @@
         let insumosData = []; // Datos de Insumos
         let isCapturingInsumo = false; // Bandera de estado
 
+        // --- CONSTANTES ---
+        const REWORK_TYPES = [ "NOM", "Artesanal", "Especial", "Reforzado", "Termoencogible", "Bolsa / Esquinero", "Runners", "Empaque de cartón", "Inspeccion" ];
+        const PAYMENT_AREAS = [ "CUA", "Rechazos", "Devoluciones", "Req Cliente", "Incidente Almacen", "Refurbished" ]; // <<-- OPCIÓN AÑADIDA
+        const CLIENTS = [ "Liverpool", "Palacio de Hierro", "Encanto", "Sears", "Elektra", "Chedraui", "Walmart", "KB&C", "Soriana", "Tiendas DLM", "D2C", "Costco", "Bodega SAPI", "Contencion", "Otro" ];
+        const ORIGIN_OPTIONS = [ "Rechazo", "CUA", "Operaciones", "Req. Cliente", "Devolucion", "Incidente Almacen" ];
+        
         // --- CONSTANTES DE ESCANEO ---
         const MAIN_SCAN_DELAY = 50;
         let scanTimeout;
         
-        // --- CONSTANTES DE MODALES ---
-        const REWORK_TYPES = [ "NOM", "Artesanal", "Especial", "Reforzado", "Termoencogible", "Bolsa / Esquinero", "Runners", "Empaque de cartón", "Inspeccion" ];
-        const PAYMENT_AREAS = [ "CUA", "Rechazos", "Devoluciones", "Req Cliente", "Incidente Almacen" ];
-        const CLIENTS = [ "Liverpool", "Palacio de Hierro", "Encanto", "Sears", "Elektra", "Chedraui", "Walmart", "KB&C", "Soriana", "Tiendas DLM", "D2C", "Costco", "Bodega SAPI", "Contencion", "Otro" ];
-        const ORIGIN_OPTIONS = [ "Rechazo", "CUA", "Operaciones", "Req. Cliente", "Devolucion", "Incidente Almacen" ];
-        
-        // --- ELEMENTOS HTML ---
+        // --- ELEMENTOS HTML (DOM REFERENCES) ---
         const scannerInput = document.getElementById('scanner-input');
         const statusArea = document.getElementById('status-area');
         const sendBatchButton = document.getElementById('send-batch-button');
@@ -342,7 +342,6 @@
         const originModal = document.getElementById('origin-modal');
         const insumosModal = document.getElementById('insumos-modal');
 
-        // Elementos de Modales y Insumos
         const reworkOptionsContainer = document.getElementById('rework-options');
         const paymentOptionsContainer = document.getElementById('payment-options'); 
         const originOptionsContainer = document.getElementById('origin-options');
@@ -362,14 +361,14 @@
         const currentModelDisplay = document.getElementById('current-model-display');
         const resetModelButton = document.getElementById('reset-model-button');
 
-        // --- INICIALIZACIÓN DE MODALES (CORREGIDA PARA ASEGURAR CARGA) ---
+        // --- INICIALIZACIÓN DE MODALES (CORREGIDO PARA ASEGURAR CARGA) ---
 
         function initializeModals() {
             // Rework
             REWORK_TYPES.forEach(type => { const button = document.createElement('button'); button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md'; button.textContent = type; button.onclick = () => selectReworkType(type); reworkOptionsContainer.appendChild(button); });
             
             // Área a Pagar
-            PAYMENT_AREAS.forEach(type => { const button = document.createElement('button'); button.className = 'w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 transition shadow-md'; button.textContent = type; button.onclick = () => selectPaymentArea(type); paymentOptionsContainer.appendChild(button); });
+            PAYMENT_AREAS.forEach(type => { const button = document.createElement('button'); const backgroundColor = type === 'Refurbished' ? 'bg-indigo-400' : 'bg-orange-600'; button.className = `w-full py-3 px-4 rounded-lg text-sm font-semibold text-white ${backgroundColor} hover:${backgroundColor.replace('600', '700')} transition shadow-md`; button.textContent = type; button.onclick = () => selectPaymentArea(type); paymentOptionsContainer.appendChild(button); });
             
             // Origen
             ORIGIN_OPTIONS.forEach(type => { const button = document.createElement('button'); const backgroundColor = type === 'Rechazo' || type === 'Devolucion' ? 'bg-pink-600' : 'bg-blue-600'; button.className = `w-full py-3 px-4 rounded-lg text-sm font-semibold text-white ${backgroundColor} hover:${backgroundColor.replace('600', '700')} transition shadow-md`; button.textContent = type; button.onclick = () => selectOrigin(type); originOptionsContainer.appendChild(button); });
@@ -379,7 +378,35 @@
             CLIENTS.forEach(client => { const option = document.createElement('option'); option.value = client; option.textContent = client; clientSelect.appendChild(option); });
         }
         
-        // --- FUNCIONES DE MODAL ---
+        // --- LÓGICA DEL TECLADO TÁCTIL ---
+
+        function inputDigit(digit) {
+            let current = cantidadDisplay.textContent.trim();
+            if (current === '1' || current === '0') {
+                cantidadDisplay.textContent = digit;
+            } else if (current.length < 9) { 
+                cantidadDisplay.textContent += digit;
+            }
+        }
+        window.inputDigit = inputDigit;
+
+        function clearLastDigit() {
+            let current = cantidadDisplay.textContent.trim();
+            if (current.length > 1) {
+                cantidadDisplay.textContent = current.slice(0, -1);
+            } else {
+                cantidadDisplay.textContent = '1';
+            }
+        }
+        window.clearLastDigit = clearLastDigit;
+
+        function clearAllDigits() {
+            cantidadDisplay.textContent = '1';
+        }
+        window.clearAllDigits = clearAllDigits;
+
+
+        // --- FUNCIONES DE MODAL Y CLASIFICACIÓN ---
 
         function showReworkModal() { reworkModal.classList.remove('hidden'); scannerInput.blur(); }
         function hideReworkModal() { reworkModal.classList.add('hidden'); maintainFocus(); }
@@ -397,8 +424,6 @@
         function promptOrigin() { if (batchData.length > 0) { showOriginModal(); }}
 
 
-        // --- FUNCIONES DE SELECCIÓN DE CLASIFICACIÓN ---
-
         function selectReworkType(type) { hideReworkModal(); currentReworkType = type; currentHospitalType = "N/A"; updateBatchDisplay(); statusArea.textContent = `✅ Acción: ${type}. Presione "LOTE TERMINADO" para enviar.`; statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700'); }
         function selectHospitalType(type) { hideHospitalModal(); currentHospitalType = type; currentReworkType = "N/A"; updateBatchDisplay(); statusArea.textContent = `✅ Acción: ${type}. Presione "LOTE TERMINADO" para enviar.`; statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700'); }
         function selectPaymentArea(type) { hidePaymentModal(); currentPaymentArea = type; updateBatchDisplay(); statusArea.textContent = `✅ Costo: ${type}. Presione "LOTE TERMINADO" para enviar.`; statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700'); }
@@ -406,7 +431,7 @@
         function selectOrigin(type) { hideOriginModal(); currentOrigin = type; updateBatchDisplay(); statusArea.textContent = `✅ Origen: ${type}. Presione "LOTE TERMINADO" para enviar.`; statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700'); }
 
 
-        // --- LÓGICA DEL TECLADO TÁCTIL ---
+        // --- LÓGICA DEL TECLADO TÁCTIL (INDEPENDIENTE) ---
 
         function inputDigit(digit) {
             let current = cantidadDisplay.textContent.trim();
@@ -449,7 +474,6 @@
             insumoVisualDisplay.value = '';
             cantidadDisplay.textContent = '1';
 
-            // Forzamos el foco al campo principal para que el escáner escriba allí
             setTimeout(() => scannerInput.focus(), 100); 
         }
 
@@ -487,7 +511,7 @@
             
             insumoVisualDisplay.value = '';
             cantidadDisplay.textContent = '1';
-            scannerInput.focus(); // Devuelve el foco al scannerInput para el siguiente insumo
+            scannerInput.focus(); 
         }
 
         function updateInsumosDisplay() {
@@ -508,7 +532,7 @@
                 });
                 insumosScannedList.scrollTop = insumosScannedList.scrollHeight;
             }
-             updateBatchDisplayBase(); // Actualiza los botones principales
+             updateBatchDisplayBase();
         }
 
         // --- FUNCIÓN DE ENVÍO FINAL ---
@@ -539,157 +563,6 @@
             const actionType = currentReworkType !== "N/A" ? currentReworkType : currentHospitalType;
 
             if (confirm(`ADVERTENCIA: ¿Está seguro que desea finalizar el lote (${actionType}) y enviar?`)) {
-                
-                const seriesData = batchData.map(item => ({
-                    ...item, modelo: currentModel, rework: currentReworkType, hospital: currentHospitalType, paymentArea: currentPaymentArea, client: currentClient, origin: currentOrigin, loteId: "PENDIENTE", operator: "AUTO" 
-                }));
-                
-                const payload = {
-                    series: seriesData,
-                    insumos: insumosData, 
-                    clasificacion: {
-                        action: actionType, paymentArea: currentPaymentArea, client: currentClient, origin: currentOrigin, modeloPrincipal: currentModel
-                    }
-                };
-                
-                sendCombinedDataToSheets(payload); 
-            }
-        }
-
-
-        // --- LÓGICA DE ESCANEO Y MANEJO DE FOCO ---
-
-        function maintainFocus() {
-            setTimeout(() => {
-                scannerInput.focus();
-                // Esta lógica de estado ya está en el HTML
-            }, 50);
-        }
-
-        function resetModel() {
-            if (batchData.length > 0) { if (!confirm("ADVERTENCIA: ¿Desea reiniciar el Modelo y descartar las series escaneadas actualmente?")) { return; } }
-            currentModel = null; batchData = []; insumosData = []; currentReworkType = "N/A"; currentHospitalType = "N/A"; currentPaymentArea = "N/A"; currentClient = "N/A"; currentOrigin = "N/A";
-            currentModelDisplay.textContent = "[Aún no se ha escaneado un Modelo]"; scannedDataElement.textContent = "[Ninguna]"; timestampElement.textContent = "Hora de escaneo: N/A";
-            updateBatchDisplay(); maintainFocus();
-        }
-        
-        function deleteSeries(index) {
-            if (index > -1 && index < batchData.length) {
-                const deletedCode = batchData[index].serie;
-                batchData.splice(index, 1); 
-                updateBatchDisplay();
-                maintainFocus();
-                statusArea.textContent = `🗑️ Serie ${deletedCode} eliminada del lote.`;
-                statusArea.classList.remove('bg-green-100', 'text-green-700'); statusArea.classList.add('bg-red-100', 'text-red-700');
-            }
-        }
-        window.deleteSeries = deleteSeries; 
-
-        function updateBatchDisplayBase() {
-            batchCountElement.textContent = batchData.length;
-            
-            const isReady = batchData.length > 0 && currentModel !== null;
-            
-            const actionIsDefined = currentReworkType !== "N/A" || currentHospitalType !== "N/A";
-            const costCenterIsDefined = currentPaymentArea !== "N/A";
-            const clientIsDefined = currentClient !== "N/A";
-            const originIsDefined = currentOrigin !== "N/A";
-            
-            sendBatchButton.disabled = !isReady; 
-            hospitalButton.disabled = !isReady; 
-            paymentButton.disabled = !isReady; 
-            clientButton.disabled = !isReady;
-            originButton.disabled = !isReady;
-            registerInsumosButton.disabled = !isReady; 
-            
-            completeBatchButton.disabled = !isReady || !(actionIsDefined && costCenterIsDefined && clientIsDefined && originIsDefined); 
-            
-            resetModelButton.disabled = currentModel === null; 
-
-            scannedListElement.innerHTML = '';
-            if (batchData.length === 0) {
-                scannedListElement.appendChild(emptyMessageElement);
-                emptyMessageElement.classList.remove('hidden');
-            } else {
-                emptyMessageElement.classList.add('hidden');
-                batchData.forEach((item, index) => {
-                    const li = document.createElement('li');
-                    li.className = 'flex justify-between items-center py-1 border-b border-gray-100';
-                    li.innerHTML = `<span class="font-mono text-gray-800">${item.serie}</span><button class="delete-btn text-red-500 hover:text-red-700 font-bold p-1 rounded-full text-xs" onclick="deleteSeries(${index})" title="Eliminar serie del lote">[X]</button>`;
-                    scannedListElement.appendChild(li);
-                });
-                scannedListElement.scrollTop = scannedListElement.scrollHeight;
-            }
-        }
-
-        const updateBatchDisplay = updateInsumosDisplay; 
-
-
-        // Función que determina si procesar como Serie o como Insumo (CRÍTICO)
-        function handleScanInput() {
-            const scannedCode = scannerInput.value.trim();
-            scannerInput.value = ''; 
-            
-            if (scannedCode.length < 3) {
-                 maintainFocus();
-                 return;
-            }
-            
-            if (isCapturingInsumo) {
-                // Modo INSUMOS (Modal abierta)
-                
-                if (insumoVisualDisplay.value.trim() !== '') {
-                     alert("¡ADVERTENCIA! Presione 'Agregar Insumo' antes de escanear el siguiente código.");
-                     return; 
-                }
-                
-                insumoVisualDisplay.value = scannedCode; // Mostrar el código escaneado
-                
-            } else {
-                // Modo SERIES (Modal cerrada)
-                processSeriesScan(scannedCode);
-            }
-            maintainFocus(); 
-        }
-
-        function processSeriesScan(scannedCode) {
-            if (!currentModel) {
-                currentModel = scannedCode; currentModelDisplay.textContent = currentModel; resetModelButton.disabled = false;
-                statusArea.textContent = `✅ ¡Modelo capturado! Comience a escanear las SERIES.`;
-                statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700');
-                scannedDataElement.textContent = `Modelo ${currentModel} capturado.`; timestampElement.textContent = `Hora: ${new Date().toLocaleTimeString()}`;
-            } else {
-                const isDuplicate = batchData.some(item => item.serie === scannedCode);
-                if (isDuplicate) {
-                    statusArea.textContent = `⚠️ DUPLICADO: La serie ${scannedCode} ya fue escaneada en este lote.`; statusArea.classList.remove('bg-green-100', 'text-green-700'); statusArea.classList.add('bg-red-100', 'text-red-700');
-                    scannedDataElement.textContent = scannedCode; timestampElement.textContent = `DUPLICADO detectado: ${new Date().toLocaleTimeString()}`;
-                } else {
-                    const now = new Date(); const formattedTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
-                    scannedDataElement.textContent = scannedCode; timestampElement.textContent = `Hora de escaneo: ${now.toLocaleTimeString()}`;
-                    batchData.push({ serie: scannedCode, longitud: scannedCode.length, timestamp: formattedTime });
-                    updateBatchDisplay();
-                    const actionType = currentReworkType !== "N/A" ? currentReworkType : (currentHospitalType !== "N/A" ? currentHospitalType : "N/A");
-                    if (actionType !== "N/A" && currentClient !== "N/A" && currentPaymentArea !== "N/A" && currentOrigin !== "N/A") { statusArea.textContent = `✔️ Serie añadida. LISTO PARA ENVIAR.`; } 
-                    else { statusArea.textContent = `✔️ Serie añadida. Aún faltan criterios.`; }
-                    statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-red-100', 'text-red-700'); statusArea.classList.add('bg-green-100', 'text-green-700');
-                }
-            }
-        }
-
-        scannerInput.addEventListener('keyup', function(e) {
-            if (e.key === 'Enter') { clearTimeout(scanTimeout); handleScanInput(); return; }
-            if (e.key.length === 1 || e.keyCode === 32 || (e.keyCode >= 48 && e.keyCode <= 90)) {
-                clearTimeout(scanTimeout);
-                scanTimeout = setTimeout(function() {
-                    if (scannerInput.value.trim().length > 0) { handleScanInput(); }
-                }, MAIN_SCAN_DELAY);
-            }
-        });
-
-        // Eventos de Foco
-        document.body.addEventListener('click', maintainFocus);
-        window.addEventListener('blur', function() { statusArea.textContent = '🔴 Foco perdido. Toca la pantalla para reanudar el escaneo.'; statusArea.classList.remove('bg-yellow-100', 'text-yellow-700', 'bg-green-100', 'text-green-700'); statusArea.classList.add('bg-red-100', 'text-red-700'); });
-
         // --- FUNCIÓN DE ENVÍO FINAL ---
 
 async function sendCombinedDataToSheets(payload) {
